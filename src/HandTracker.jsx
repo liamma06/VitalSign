@@ -1,4 +1,4 @@
-"use client"; // <--- ADD THIS LINE AT THE VERY TOP
+"use client";
 
 import React, { useRef, useEffect, useState } from 'react';
 import Webcam from 'react-webcam';
@@ -8,131 +8,105 @@ export default function HandTracker() {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const [landmarker, setLandmarker] = useState(null);
+  const [gesture, setGesture] = useState("Waiting...");
 
-  // 1. Initialize MediaPipe HandLandmarker
   useEffect(() => {
     const createLandmarker = async () => {
-      console.log("1. Starting Model Load..."); // <--- DEBUG STEP 1
-      
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
       );
-      
       const newLandmarker = await HandLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-          delegate: "GPU" // Switch to "CPU" if your browser crashes
+          delegate: "GPU"
         },
         runningMode: "VIDEO",
-        numHands: 2
+        numHands: 1
       });
-      
-      console.log("2. Model Loaded Successfully!"); // <--- DEBUG STEP 2
       setLandmarker(newLandmarker);
     };
     createLandmarker();
   }, []);
 
-  // 2. Process Frames Loop
   const predictWebcam = () => {
     if (landmarker && webcamRef.current && webcamRef.current.video.readyState === 4) {
       const video = webcamRef.current.video;
-      const { videoWidth, videoHeight } = video;
-
-      // Ensure canvas matches video size
-      canvasRef.current.width = videoWidth;
-      canvasRef.current.height = videoHeight;
+      canvasRef.current.width = video.videoWidth;
+      canvasRef.current.height = video.videoHeight;
 
       let startTimeMs = performance.now();
       const results = landmarker.detectForVideo(video, startTimeMs);
 
       if (results.landmarks && results.landmarks.length > 0) {
-        console.log("3. Hand Detected:", results.landmarks); // <--- DEBUG STEP 3
-        draw(results.landmarks);
+        // We pass 'true' to indicate we want to mirror the coordinates
+        draw(results.landmarks, true);
+        setGesture(classifyGesture(results.landmarks[0], true));
       } else {
-        // Clear canvas if no hands are found (visual feedback that it's running)
         const ctx = canvasRef.current.getContext('2d');
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        setGesture("No Hand");
       }
     }
     requestAnimationFrame(predictWebcam);
   };
 
-  // 3. Draw Logic
-  const draw = (landmarks) => {
+  const classifyGesture = (landmarks, mirrored = true) => {
+    // If mirrored, we flip the X check for the thumb
+    // Normal: Thumb tip X < Thumb IP X is open
+    // Mirrored: Thumb tip X > Thumb IP X is open
+    const thumbXTip = mirrored ? (1 - landmarks[4].x) : landmarks[4].x;
+    const thumbXIP = mirrored ? (1 - landmarks[3].x) : landmarks[3].x;
+
+    const isIndexOpen = landmarks[8].y < landmarks[6].y;
+    const isMiddleOpen = landmarks[12].y < landmarks[10].y;
+    const isRingOpen = landmarks[16].y < landmarks[14].y;
+    const isPinkyOpen = landmarks[20].y < landmarks[18].y;
+    const isThumbOpen = thumbXTip < thumbXIP; 
+
+    if (isIndexOpen && isMiddleOpen && isRingOpen && isPinkyOpen) return "🖐️ Open Hand";
+    if (!isIndexOpen && !isMiddleOpen && !isRingOpen && !isPinkyOpen) return "✊ Closed Fist";
+    if (isIndexOpen && isMiddleOpen && !isRingOpen && !isPinkyOpen) return "✌️ Peace";
+    return "Detecting...";
+  };
+
+  const draw = (landmarks, mirrored = true) => {
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    
-    // Style settings
-    ctx.lineWidth = 4; 
-    
-    landmarks.forEach((hand) => {
-      // Draw Points
-      ctx.fillStyle = "yellow";
-      for (let point of hand) {
-        const x = point.x * canvasRef.current.width;
-        const y = point.y * canvasRef.current.height;
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, 2 * Math.PI); 
-        ctx.fill();
-      }
+    const { width, height } = canvasRef.current;
 
-      // Draw Connections
-      ctx.strokeStyle = "green";
-      ctx.beginPath();
-      
-      const drawFinger = (indices) => {
-        ctx.moveTo(hand[indices[0]].x * canvasRef.current.width, hand[indices[0]].y * canvasRef.current.height);
-        for(let i = 1; i < indices.length; i++) {
-           ctx.lineTo(hand[indices[i]].x * canvasRef.current.width, hand[indices[i]].y * canvasRef.current.height);
-        }
-      }
-      
-      drawFinger([0, 1, 2, 3, 4]);       // Thumb
-      drawFinger([0, 5, 6, 7, 8]);       // Index
-      drawFinger([9, 10, 11, 12]);       // Middle
-      drawFinger([13, 14, 15, 16]);      // Ring
-      drawFinger([0, 17, 18, 19, 20]);   // Pinky
-      drawFinger([5, 9, 13, 17]);        // Knuckles
-      
-      ctx.stroke();
+    landmarks.forEach((hand) => {
+      ctx.fillStyle = "#00FF00";
+      hand.forEach((point) => {
+        // MIRROR MATH: 1 - x
+        const x = mirrored ? (1 - point.x) * width : point.x * width;
+        const y = point.y * height;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+        ctx.fill();
+      });
     });
   };
 
-  // Trigger prediction when data is loaded
-  useEffect(() => {
-    if (landmarker) {
-      predictWebcam();
-    }
-  }, [landmarker]);
+  useEffect(() => { if (landmarker) predictWebcam(); }, [landmarker]);
 
   return (
-    <div style={{ position: "relative" }}>
-      {/* The Camera Feed */}
+    <div style={{ position: "relative", width: "640px" }}>
       <Webcam
         ref={webcamRef}
-        style={{ 
-          position: "absolute", 
-          left: 0, 
-          top: 0, 
-          width: "100%", 
-          height: "auto",
-          zIndex: 9 // Behind the canvas
-        }}
+        mirrored={true} // Visual mirror for the video
+        style={{ width: "100%", height: "auto" }}
       />
-      {/* The Overlay (Lines & Dots) */}
       <canvas
         ref={canvasRef}
-        style={{ 
-          position: "absolute", 
-          left: 0, 
-          top: 0, 
-          width: "100%", 
-          height: "auto",
-          border: "5px solid red", // <--- VISUAL DEBUG: Proves canvas exists
-          zIndex: 10 // On top of the video
-        }}
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "auto", zIndex: 2 }}
       />
+      <div style={{
+        position: 'absolute', top: 20, left: 20, zIndex: 10,
+        background: 'rgba(0,0,0,0.7)', color: 'white', padding: '10px', borderRadius: '8px'
+      }}>
+        {gesture}
+      </div>
     </div>
   );
 }
