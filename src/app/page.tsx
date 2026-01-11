@@ -10,10 +10,10 @@ export default function Home() {
   const [transcript, setTranscript] = useState<{ text: string; emotion: string; timestamp: number }[]>([]);
 
   // Callback when HandTracker finishes a sentence
-  const handleSentenceComplete = (text: string, emotion: string) => {
+  const handleSentenceComplete = (text: string, emotion?: string) => {
     setTranscript(prev => [
       ...prev, 
-      { text, emotion, timestamp: Date.now() }
+      { text, emotion: emotion || 'Neutral', timestamp: Date.now() }
     ]);
   };
 
