@@ -16,25 +16,19 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   const emotionInFlight = useRef(false);
   const lastEmotionUpdatedAt = useRef(0);
 
-  // RAF loop reads from refs (state values would be stale inside the loop)
   const sentenceRef = useRef("");
   const faceEmotionRef = useRef("Neutral");
   
-  // HISTORY FOR DEBOUNCING AND MOTION
   const gestureHistory = useRef([]);
   const motionBuffer = useRef([]); 
   const lastTypedTime = useRef(0);
   const lastCommittedGesture = useRef(null);
   const handWasDetected = useRef(false);
 
-  // Hand-left-frame debounce
   const noHandFrames = useRef(0);
   const lastFinalizeAt = useRef(0);
 
-  // --- SENSITIVITY TUNING ---
   const HISTORY_SIZE = 30; 
-  const MOTION_WINDOW_MS = 500; 
-
   const NO_HAND_FRAME_THRESHOLD = 8;
   const FINALIZE_COOLDOWN_MS = 800;
 
@@ -51,14 +45,12 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       return { kind: "none", baseWeight: 0, minCount: Infinity, typeMinCount: Infinity, typeDelayMs: Infinity };
     }
     
-    // --- SPECIAL CASE: HELLO ---
-    // Dynamic gestures (movement) are harder to hold perfectly.
-    // We lower the threshold (10 frames vs 20) so a quick wave registers.
-    if (g === "HELLO") {
+    // --- ADJUSTED THRESHOLDS ---
+    // Lowered minCount to 10 for "THANK YOU" to match "HELLO" for easier detection
+    if (g === "HELLO" || g === "THANK YOU") {
        return { kind: "word", baseWeight: 2.5, minCount: 10, typeMinCount: 10, typeDelayMs: 600 };
     }
 
-    // Static gestures need stability (20 frames / ~0.6s)
     return { kind: "word", baseWeight: 2.5, minCount: 20, typeMinCount: 20, typeDelayMs: 600 };
   };
 
@@ -204,16 +196,13 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
                 lastTrend = currentTrend;
             }
         }
-        // REDUCED REQUIREMENT: 2 swipes (Left->Right) is enough
-        if (velocityChanges >= 2) {
-            return "HELLO";
-        }
+        if (velocityChanges >= 2) return "HELLO";
     }
 
     // --- THANK YOU ---
-    if (isPalmOpen && motionBuffer.current.length > 5) {
-         const dy = motionBuffer.current[0].y - motionBuffer.current[5].y;
-         if (dy > 0.10) return "THANK YOU";
+    if (isPalmOpen && motionBuffer.current.length > 8) {
+         const dy = motionBuffer.current[0].y - motionBuffer.current[8].y;
+         if (dy > 0.06) return "THANK YOU";
     }
 
     // --- GOODBYE (Salute) ---
@@ -221,17 +210,14 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
         return "GOODBYE";
     }
 
-    const isThumbOut = dist(thumbT, indexK) > handScale * 0.6;
+    // HAND-NEUTRAL THUMB DETECTION
+    const isThumbOut = dist(thumbT, indexK) > handScale * 0.55;
 
     // --- HELP (Signal for Help) ---
-    // TIGHTENED REQUIREMENT: Thumb must be visibly TUCKED (near index knuckle)
-    // Previous "isThumbOut" gap was too wide.
     const isThumbTucked = dist(thumbT, indexK) < handScale * 0.35; 
-    if (isPalmOpen && isThumbTucked) {
-        return "HELP";
-    }
+    if (isPalmOpen && isThumbTucked) return "HELP";
 
-    // --- LOVE ---
+    // --- LOVE (ILY Sign) - Updated for both hands ---
     if (f1 && !f2 && !f3 && f4 && isThumbOut) {
         return "LOVE";
     }
@@ -243,38 +229,27 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
 
     // --- ME ---
     if (!f1 && !f2 && !f3 && !f4) {
-        const isThumbMostlyOut = dist(thumbT, indexK) > handScale * 0.4;
-        if (isThumbMostlyOut) {
+        if (isThumbOut) {
             const isHorizontal = Math.abs(thumbT.y - indexK.y) < handScale * 0.5;
-            const isPointingIn = Math.abs(thumbT.x - pinkyK.x) < Math.abs(thumbT.x - indexK.x) || 
-                                 Math.abs(thumbT.x - wrist.x) < handScale * 0.3;
             if (isHorizontal) return "ME";
         }
     }
 
     // --- YES ---
     if (!f1 && !f2 && !f3 && !f4) {
-        if (thumbT.y < indexK.y - (handScale * 0.2)) {
-            return "YES";
-        }
+        if (thumbT.y < indexK.y - (handScale * 0.2)) return "YES";
     }
 
     // --- NO ---
     if (!f1 && !f2 && !f3 && !f4) {
-         if (thumbT.y > wrist.y + (handScale * 0.2)) {
-             return "NO";
-         }
+         if (thumbT.y > wrist.y + (handScale * 0.2)) return "NO";
     }
 
     // --- I ---
-    if (!f1 && !f2 && !f3 && f4 && !isThumbOut) {
-        return "I";
-    }
+    if (!f1 && !f2 && !f3 && f4 && !isThumbOut) return "I";
 
     // --- YOU ---
-    if (f1 && !f2 && !f3 && !f4) {
-        return "YOU";
-    }
+    if (f1 && !f2 && !f3 && !f4) return "YOU";
 
     return "...";
   };
@@ -334,7 +309,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
 
   const containerStyle = compact 
     ? { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }
-    : { display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#121212', minHeight: '100vh', padding: '20px', color: 'white', fontFamily: 'sans-serif' };
+    : { display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#121212', minHeight: '100vh', padding: '20px', color: 'white', fontFamily: 'system-ui, sans-serif' };
   
   const videoContainerStyle = compact
     ? { position: 'relative', width: '100%', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem' }
