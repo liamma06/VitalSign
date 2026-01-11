@@ -7,7 +7,7 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   // Ensure browser builds don't choke on Node-only deps pulled by some ML libs.
   outputFileTracingRoot: projectRoot,
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, webpack }) => {
     if (!isServer) {
       config.resolve = config.resolve ?? {};
       config.resolve.fallback = {
@@ -22,6 +22,15 @@ const nextConfig: NextConfig = {
         // Prevent node-fetch from being bundled (browsers have native fetch)
         'node-fetch': false
       };
+      
+      // Ignore encoding module for browser builds
+      config.plugins = config.plugins ?? [];
+      config.plugins.push(
+        new webpack.IgnorePlugin({
+          resourceRegExp: /^encoding$/,
+          contextRegExp: /node-fetch/
+        })
+      );
     }
 
     return config;
