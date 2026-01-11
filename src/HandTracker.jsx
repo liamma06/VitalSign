@@ -50,7 +50,15 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     if (!g || g === "..." || g === "No Hand") {
       return { kind: "none", baseWeight: 0, minCount: Infinity, typeMinCount: Infinity, typeDelayMs: Infinity };
     }
-    // High threshold for stability
+    
+    // --- SPECIAL CASE: HELLO ---
+    // Dynamic gestures (movement) are harder to hold perfectly.
+    // We lower the threshold (10 frames vs 20) so a quick wave registers.
+    if (g === "HELLO") {
+       return { kind: "word", baseWeight: 2.5, minCount: 10, typeMinCount: 10, typeDelayMs: 600 };
+    }
+
+    // Static gestures need stability (20 frames / ~0.6s)
     return { kind: "word", baseWeight: 2.5, minCount: 20, typeMinCount: 20, typeDelayMs: 600 };
   };
 
@@ -170,81 +178,70 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     // Normalization scale
     const handScale = dist(wrist, middleK);
   
-    // Extended Logic - Stricter Threshold
+    // Extended Logic
     const isExtended = (tip, knuckle) => dist(tip, wrist) > dist(knuckle, wrist) + (handScale * 0.25);
     
-    const f1 = isExtended(indexT, indexK); // Index
-    const f2 = isExtended(middleT, middleK); // Middle
-    const f3 = isExtended(ringT, ringK);   // Ring
-    const f4 = isExtended(pinkyT, pinkyK); // Pinky
-  
-    // --- 1. MOTION ANALYSIS ---
-    let startPos = wrist;
-    let endPos = wrist;
+    const f1 = isExtended(indexT, indexK); 
+    const f2 = isExtended(middleT, middleK); 
+    const f3 = isExtended(ringT, ringK);   
+    const f4 = isExtended(pinkyT, pinkyK); 
     
-    if (motionBuffer.current.length > 5) {
-      endPos = motionBuffer.current[0];
-      for (let i = 0; i < motionBuffer.current.length; i++) {
-        if (Date.now() - motionBuffer.current[i].time > 400) {
-          startPos = motionBuffer.current[i];
-          break;
-        }
-      }
-    }
-    
-    const dx = endPos.x - startPos.x;
-    const dy = endPos.y - startPos.y; 
-    const dxView = -dx; 
-
     const isPalmOpen = f1 && f2 && f3 && f4;
     const isSideways = Math.abs(wrist.x - middleK.x) > Math.abs(wrist.y - middleK.y);
-
-    // --- "GOODBYE" (Salute) ---
-    // Criteria:
-    // 1. Palm Open (All fingers extended)
-    // 2. Fingers Together (Distance between index/middle tip is small)
-    // 3. Sideways orientation
-    // 4. Position: Upper half of screen (wrist.y < 0.6)
     const fingersTogether = dist(indexT, middleT) < handScale * 0.4; 
+
+    // --- 1. HELLO (Wave) ---
+    if (isPalmOpen && !fingersTogether) {
+        let velocityChanges = 0;
+        let lastTrend = 0; 
+        for(let i=0; i < motionBuffer.current.length - 1; i++){
+            const diff = motionBuffer.current[i].x - motionBuffer.current[i+1].x;
+            if (Math.abs(diff) > 0.015) {
+                const currentTrend = diff > 0 ? 1 : -1;
+                if (lastTrend !== 0 && currentTrend !== lastTrend) {
+                    velocityChanges++;
+                }
+                lastTrend = currentTrend;
+            }
+        }
+        // REDUCED REQUIREMENT: 2 swipes (Left->Right) is enough
+        if (velocityChanges >= 2) {
+            return "HELLO";
+        }
+    }
+
+    // --- THANK YOU ---
+    if (isPalmOpen && motionBuffer.current.length > 5) {
+         const dy = motionBuffer.current[0].y - motionBuffer.current[5].y;
+         if (dy > 0.10) return "THANK YOU";
+    }
+
+    // --- GOODBYE (Salute) ---
     if (isPalmOpen && fingersTogether && isSideways && wrist.y < 0.6) {
         return "GOODBYE";
     }
 
-    // --- "HELLO" (Wave) ---
-    let wiggleEnergy = 0;
-    for(let i=0; i < motionBuffer.current.length - 1; i++){
-        wiggleEnergy += Math.abs(motionBuffer.current[i].x - motionBuffer.current[i+1].x);
-    }
-    // Only wave if fingers are NOT pressed together (to distinguish from Salute)
-    if (isPalmOpen && !fingersTogether && (wiggleEnergy > 0.4 || Math.abs(dxView) > 0.15)) {
-        return "HELLO";
-    }
-
-    // --- "THANK YOU" ---
-    if (isPalmOpen && dy > 0.10) { 
-        return "THANK YOU";
-    }
-
-    // --- STATIC GESTURES ---
-
     const isThumbOut = dist(thumbT, indexK) > handScale * 0.6;
 
-    // --- "HELP" ---
-    if (isPalmOpen && !isThumbOut) {
+    // --- HELP (Signal for Help) ---
+    // TIGHTENED REQUIREMENT: Thumb must be visibly TUCKED (near index knuckle)
+    // Previous "isThumbOut" gap was too wide.
+    const isThumbTucked = dist(thumbT, indexK) < handScale * 0.35; 
+    if (isPalmOpen && isThumbTucked) {
         return "HELP";
     }
 
-    // --- "LOVE" ---
+    // --- LOVE ---
     if (f1 && !f2 && !f3 && f4 && isThumbOut) {
         return "LOVE";
     }
 
-    // --- "CALL" ---
+    // --- CALL ---
     if (!f1 && !f2 && !f3 && f4 && isThumbOut) {
         if (isSideways) return "CALL";
     }
 
-    // --- "ME" ---
+    // --- ME ---
     if (!f1 && !f2 && !f3 && !f4) {
         const isThumbMostlyOut = dist(thumbT, indexK) > handScale * 0.4;
         if (isThumbMostlyOut) {
@@ -255,26 +252,26 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
         }
     }
 
-    // --- "YES" ---
+    // --- YES ---
     if (!f1 && !f2 && !f3 && !f4) {
         if (thumbT.y < indexK.y - (handScale * 0.2)) {
             return "YES";
         }
     }
 
-    // --- "NO" ---
+    // --- NO ---
     if (!f1 && !f2 && !f3 && !f4) {
          if (thumbT.y > wrist.y + (handScale * 0.2)) {
              return "NO";
          }
     }
 
-    // --- "I" ---
+    // --- I ---
     if (!f1 && !f2 && !f3 && f4 && !isThumbOut) {
         return "I";
     }
 
-    // --- "YOU" ---
+    // --- YOU ---
     if (f1 && !f2 && !f3 && !f4) {
         return "YOU";
     }
