@@ -28,8 +28,6 @@ export default function Home() {
   const [transcript, setTranscript] = useState<{ text: string; emotion: string; timestamp: number }[]>([]);
   const pipelineInFlight = useRef(false);
 
-  const pipelineInFlight = useRef(false);
-
   // Callback when HandTracker finishes a sentence
   const handleSentenceComplete = (text: string, emotion?: string) => {
     void (async () => {
