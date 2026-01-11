@@ -20,8 +20,8 @@ export function CameraPanel({ children }: { children: ReactNode }) {
           borderRadius: '8px',
           fontSize: '12px',
           fontWeight: 'bold',
-          color: '#00FF7F',
-          border: '1px solid rgba(0,255,127,0.2)'
+          color: 'var(--vs-accent)',
+          border: '1px solid rgb(var(--vs-accent-rgb) / 0.25)'
         }}>
           ● LIVE FEED
         </div>

@@ -25,7 +25,7 @@ export function TranscriptPanel({ history, onClear }: TranscriptPanelProps) {
       {/* HEADER */}
       <div style={{ 
         padding: '20px', 
-        borderBottom: '1px solid #334155', 
+        borderBottom: '1px solid var(--vs-border)', 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center'
@@ -35,8 +35,8 @@ export function TranscriptPanel({ history, onClear }: TranscriptPanelProps) {
           onClick={onClear}
           style={{ 
             background: 'transparent', 
-            border: '1px solid #475569', 
-            color: '#94a3b8', 
+            border: '1px solid var(--vs-border-strong)', 
+            color: 'var(--vs-muted)', 
             padding: '6px 12px', 
             borderRadius: '6px', 
             cursor: 'pointer',
@@ -50,33 +50,33 @@ export function TranscriptPanel({ history, onClear }: TranscriptPanelProps) {
       {/* LIST */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         {history.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#64748b', marginTop: '40px' }}>
+          <div style={{ textAlign: 'center', color: 'var(--vs-muted-2)', marginTop: '40px' }}>
             <p>No speech detected yet.</p>
             <p style={{ fontSize: '12px' }}>Sign to the camera to begin translation.</p>
           </div>
         ) : (
           history.map((item, i) => (
             <div key={i} style={{ 
-              background: '#0f172a', 
+              background: 'var(--vs-surface-2)', 
               padding: '15px', 
               borderRadius: '12px', 
-              borderLeft: '4px solid #3b82f6' 
+              borderLeft: '4px solid var(--vs-accent-blue)' 
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <span style={{ 
                   fontSize: '11px', 
                   textTransform: 'uppercase', 
-                  color: '#64748b', 
+                  color: 'var(--vs-muted-2)', 
                   fontWeight: 'bold' 
                 }}>
                   {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <span style={{ 
                   fontSize: '11px', 
-                  background: '#1e293b', 
+                  background: 'var(--vs-surface)', 
                   padding: '2px 8px', 
                   borderRadius: '10px', 
-                  color: item.emotion === 'Happy' ? '#4ade80' : item.emotion === 'Sad' ? '#60a5fa' : '#94a3b8' 
+                  color: item.emotion === 'Happy' ? 'var(--vs-accent)' : item.emotion === 'Sad' ? 'var(--vs-accent-blue)' : 'var(--vs-muted)' 
                 }}>
                   {item.emotion || "Neutral"}
                 </span>

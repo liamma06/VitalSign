@@ -102,8 +102,8 @@ export default function Home() {
   return (
     <main style={{ 
       minHeight: '100vh', 
-      background: '#0f172a', 
-      color: 'white',
+      background: 'var(--vs-bg)', 
+      color: 'var(--vs-text)',
       display: 'flex',
       flexDirection: 'column',
       fontFamily: 'system-ui, sans-serif'
@@ -111,17 +111,17 @@ export default function Home() {
       {/* HEADER */}
       <header style={{ 
         padding: '20px 40px', 
-        borderBottom: '1px solid #334155', 
+        borderBottom: '1px solid var(--vs-border)', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
-        background: '#1e293b'
+        background: 'var(--vs-surface)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <div style={{ width: 12, height: 12, background: '#00FF7F', borderRadius: '50%', boxShadow: '0 0 10px #00FF7F' }} />
+          <div style={{ width: 12, height: 12, background: 'var(--vs-accent)', borderRadius: '50%', boxShadow: '0 0 10px var(--vs-accent)' }} />
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '600', letterSpacing: '-0.5px' }}>VitalSign AI</h1>
         </div>
-        <div style={{ fontSize: '14px', color: '#94a3b8' }}>
+        <div style={{ fontSize: '14px', color: 'var(--vs-muted)' }}>
           System Operational
         </div>
       </header>
@@ -138,9 +138,9 @@ export default function Home() {
         
         {/* LEFT: CAMERA FEED */}
         <div style={{ 
-          background: '#1e293b', 
+          background: 'var(--vs-surface)', 
           borderRadius: '16px', 
-          border: '1px solid #334155', 
+          border: '1px solid var(--vs-border)', 
           overflow: 'hidden',
           display: 'flex',
           justifyContent: 'center',
@@ -158,9 +158,9 @@ export default function Home() {
 
         {/* RIGHT: TRANSCRIPT HISTORY */}
         <div style={{ 
-          background: '#1e293b', 
+          background: 'var(--vs-surface)', 
           borderRadius: '16px', 
-          border: '1px solid #334155', 
+          border: '1px solid var(--vs-border)', 
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
