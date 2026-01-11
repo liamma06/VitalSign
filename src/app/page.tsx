@@ -1,164 +1,152 @@
 "use client";
 
+import { useRef, useState } from 'react';
 import Link from 'next/link';
-import ShinyText from '@/src/ui/components/ShinyText';
+import HandTracker from '../HandTracker';
+import { TranscriptPanel } from '../ui/components/TranscriptPanel';
+import { CameraPanel } from '../ui/components/CameraPanel';
+import ShinyText from '../ui/components/ShinyText'; // <--- Added Import
 
-const gestures = [
-  { name: "HELLO", icon: "👋", desc: "Wave your hand side-to-side (at least 2 swipes)." },
-  { name: "THANK YOU", icon: "🙏", desc: "Hold palm open, then move hand down vertically." },
-  { name: "GOODBYE", icon: "🫡", desc: "Salute! Flat hand, fingers together, near your head." },
-  { name: "HELP", icon: "🆘", desc: "Palm open with your Thumb tucked in." },
-  { name: "YES", icon: "👍", desc: "Thumbs Up." },
-  { name: "NO", icon: "👎", desc: "Thumbs Down." },
-  { name: "LOVE", icon: "🤟", desc: "Index + Pinky + Thumb extended (ILY sign)." },
-  { name: "CALL", icon: "🤙", desc: "Thumb + Pinky extended, held sideways." },
-  { name: "ME", icon: "👈", desc: "Point at yourself with your thumb." },
-  { name: "YOU", icon: "🫵", desc: "Point at the screen with your index finger." },
-  { name: "I", icon: "ℹ️", desc: "Pinky finger extended up." },
-];
+async function playAudioInBrowser(audioBuffer: ArrayBuffer): Promise<void> {
+  const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
 
-export default function TutorialPage() {
-  return (
-    <>
-      <style>{`
-        .gesture-card {
-          background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 16px;
-          padding: 25px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          cursor: default;
-          position: relative;
-        }
+  return new Promise((resolve, reject) => {
+    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    audio.onerror = (error) => { URL.revokeObjectURL(url); reject(error); };
+    audio.play().catch(reject);
+  });
+}
 
-        .gesture-card:hover {
-          transform: scale(1.05) translateY(-5px);
-          border-color: #00FF7F;
-          box-shadow: 0 10px 30px -10px rgba(0, 255, 127, 0.4);
-          z-index: 10;
-          background: #0f172a;
-        }
+export default function Home() {
+  const [transcript, setTranscript] = useState<{ text: string; emotion: string; timestamp: number }[]>([]);
+  const pipelineInFlight = useRef(false);
 
-        main::-webkit-scrollbar { width: 10px; }
-        main::-webkit-scrollbar-track { background: #0f172a; }
-        main::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; }
-        main::-webkit-scrollbar-thumb:hover { background: #00FF7F; }
+  const handleSentenceComplete = (text: string, emotion?: string) => {
+    void (async () => {
+      const raw = (text ?? "").trim();
+      if (!raw) return;
+      if (pipelineInFlight.current) return;
+      pipelineInFlight.current = true;
 
-        /* Button Hover Animation */
-        .start-btn {
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-          display: inline-block; /* Essential for transform to work on Link */
-        }
-        .start-btn:hover {
-          transform: scale(1.05);
-          box-shadow: 0 0 25px rgba(0, 255, 127, 0.6);
-        }
-      `}</style>
+      const emotionLabel = (emotion ?? "Neutral").trim();
+      setTranscript(prev => [...prev, { text: raw, emotion: emotionLabel, timestamp: Date.now() }]);
 
-      <main style={{
-        height: '100vh',
-        overflowY: 'auto',
-        background: '#0f172a',
-        color: 'white',
-        padding: '40px',
-        fontFamily: 'system-ui, sans-serif',
-        position: 'relative'
-      }}>
+      try {
+        const basePrompt = 'You are a helpful assistant. Rewrite this sign-language text into natural English. Keep it brief.';
+        const fullPrompt = `${basePrompt}\n\nRaw Text: ${JSON.stringify(raw)}\nEmotion: ${emotionLabel}`;
         
-        {/* Header Section */}
-        <div style={{ maxWidth: '1000px', margin: '0 auto 40px auto', textAlign: 'center' }}>
+        const geminiResponse = await fetch("/api/gemini", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: fullPrompt })
+        });
+
+        if (!geminiResponse.ok) throw new Error("Gemini API Error");
+        const geminiData = await geminiResponse.json();
+        const refined = String(geminiData?.text ?? "").trim();
+
+        if (refined) {
+          setTranscript(prev => [...prev, { text: refined, emotion: emotionLabel || "AI", timestamp: Date.now() }]);
           
-          <div style={{ marginBottom: '20px' }}>
-            <img 
-              src="/VitalSignIcon.png" 
-              alt="VitalSign Logo" 
-              style={{ 
-                width: '170px', 
-                height: '170px', 
-                borderRadius: '20px', 
-                border: '3px solid #00FF7F',
-                boxShadow: '0 0 20px rgba(0,255,127,0.2)',
-                objectFit: 'cover'
-              }} 
-            />
-          </div>
+          const speakResponse = await fetch("/api/speak", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: refined, emotion: emotionLabel })
+          });
 
-          <h1 style={{ fontSize: '48px', marginBottom: '10px' }}>
-            <ShinyText text="Gesture Library" speed={3} />
+          if (speakResponse.ok) {
+            const audioBuffer = await speakResponse.arrayBuffer();
+            await playAudioInBrowser(audioBuffer);
+          }
+        }
+      } catch (e) {
+        console.error("Pipeline error:", e);
+      } finally {
+        pipelineInFlight.current = false;
+      }
+    })();
+  };
+
+  const clearTranscript = () => setTranscript([]);
+
+  return (
+    <main style={{ 
+      height: '100vh',
+      background: 'var(--vs-bg)', 
+      color: 'var(--vs-text)',
+      display: 'flex',
+      flexDirection: 'column',
+      fontFamily: 'system-ui, sans-serif',
+      overflow: 'hidden'
+    }}>
+      {/* HEADER */}
+      <header style={{ 
+        padding: '16px 32px', 
+        borderBottom: '1px solid var(--vs-border)', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        background: 'var(--vs-surface)',
+        backdropFilter: 'blur(10px)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          
+          <img 
+            src="/VitalSignIcon.png" 
+            alt="VitalSign Logo" 
+            style={{ 
+              width: '45px',    
+              height: '45px',   
+              borderRadius: '10px', 
+              objectFit: 'cover',
+              filter: 'drop-shadow(0 0 8px rgba(0, 255, 127, 0.8)) brightness(1.2)'
+            }} 
+          />
+          
+          {/* --- REPLACED STATIC TEXT WITH SHINYTEXT --- */}
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '600', letterSpacing: '-0.75px' }}>
+            <ShinyText text="VitalSign" speed={3} />
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: '18px' }}>
-            Master the signals to communicate with VitalSign AI.
-          </p>
+
         </div>
 
-        {/* Grid of Gestures */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: '20px',
-          maxWidth: '1000px',
-          margin: '0 auto',
-          paddingBottom: '120px' 
-        }}>
-          {gestures.map((g) => (
-            <div key={g.name} className="gesture-card">
-              <div style={{ fontSize: '48px', marginBottom: '15px' }}>{g.icon}</div>
-              <h3 style={{ 
-                color: '#00FF7F', 
-                fontSize: '20px', 
-                fontWeight: 'bold', 
-                marginBottom: '10px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
-              }}>
-                {g.name}
-              </h3>
-              <p style={{ color: '#cbd5e1', lineHeight: '1.5' }}>
-                {g.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Fixed Floating Footer */}
-        <div style={{ 
-          position: 'fixed', 
-          bottom: '30px',
-          left: '0',
-          width: '100%',
-          display: 'flex',
-          justifyContent: 'center',
-          pointerEvents: 'none', 
-          zIndex: 100
-        }}>
-          {/* DIRECT LINK METHOD 
-             This href="/" points to src/app/page.tsx
-          */}
-          <Link 
-            href="/" 
-            className="start-btn"
-            style={{
-              pointerEvents: 'auto',
-              textDecoration: 'none',
-              background: '#00FF7F',
-              color: '#000',
-              padding: '14px 40px',
-              borderRadius: '50px',
-              border: 'none',
-              fontWeight: 'bold',
-              fontSize: '18px',
-              boxShadow: '0 4px 20px rgba(0, 255, 127, 0.4)',
-              cursor: 'pointer',
-            }}
-          >
-            Start Translating →
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <Link href="/tutorial" style={{ 
+            color: 'var(--vs-muted)', 
+            textDecoration: 'none', 
+            fontSize: '13px', 
+            fontWeight: '500',
+            cursor: 'pointer'
+          }}>
+            Tutorial
           </Link>
+          <div style={{ 
+            fontSize: '13px', 
+            color: 'var(--vs-accent)', 
+            border: '1px solid var(--vs-accent)', 
+            padding: '4px 10px', 
+            borderRadius: '4px', 
+            fontWeight: '500',
+            backgroundColor: 'rgba(0, 255, 127, 0.05)' 
+          }}>
+            System Operational
+          </div>
         </div>
-      </main>
-    </>
+      </header>
+
+      {/* CONTENT */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 420px', gap: '24px', padding: '24px', minHeight: 0 }}>
+        <div style={{ background: 'var(--vs-surface)', borderRadius: '20px', border: '1px solid var(--vs-border)', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+          <CameraPanel>
+            <HandTracker onSentenceComplete={handleSentenceComplete} compact={true} />
+          </CameraPanel>
+        </div>
+        <div style={{ background: 'var(--vs-surface)', borderRadius: '20px', border: '1px solid var(--vs-border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+          <TranscriptPanel history={transcript} onClear={clearTranscript} />
+        </div>
+      </div>
+    </main>
   );
 }
