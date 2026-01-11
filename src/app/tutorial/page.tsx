@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import ShinyText from '@/src/ui/components/ShinyText';
 
 const gestures = [
@@ -18,7 +19,6 @@ const gestures = [
 
 export default function TutorialPage() {
 
-  // FORCE NAVIGATION EVENT
   const handleStartClick = () => {
     window.location.href = '/';
   };
@@ -27,8 +27,8 @@ export default function TutorialPage() {
     <>
       <style>{`
         .gesture-card {
-          background: #1e293b;
-          border: 1px solid #334155;
+          background: var(--vs-surface);
+          border: 1px solid var(--vs-border);
           border-radius: 16px;
           padding: 25px;
           display: flex;
@@ -42,16 +42,16 @@ export default function TutorialPage() {
 
         .gesture-card:hover {
           transform: scale(1.05) translateY(-5px);
-          border-color: #00FF7F;
+          border-color: var(--vs-accent);
           box-shadow: 0 10px 30px -10px rgba(0, 255, 127, 0.4);
           z-index: 10;
-          background: #0f172a;
+          background: rgba(255,255,255,0.02);
         }
 
         main::-webkit-scrollbar { width: 10px; }
-        main::-webkit-scrollbar-track { background: #0f172a; }
-        main::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; }
-        main::-webkit-scrollbar-thumb:hover { background: #00FF7F; }
+        main::-webkit-scrollbar-track { background: var(--vs-bg); }
+        main::-webkit-scrollbar-thumb { background: var(--vs-border); border-radius: 5px; }
+        main::-webkit-scrollbar-thumb:hover { background: var(--vs-accent); }
 
         .start-btn {
           transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -64,67 +64,54 @@ export default function TutorialPage() {
 
       <main style={{
         height: '100vh',
-        overflowY: 'auto',
-        background: '#0f172a',
-        color: 'white',
-        padding: '40px',
-        fontFamily: 'system-ui, sans-serif',
-        position: 'relative'
+        overflow: 'hidden',
+        background: 'var(--vs-bg)',
+        color: 'var(--vs-text)',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: 'system-ui, sans-serif'
       }}>
         
-        {/* Header Section */}
-        <div style={{ maxWidth: '1000px', margin: '0 auto 40px auto', textAlign: 'center' }}>
-          
-          <div style={{ marginBottom: '20px' }}>
-            <img 
-              src="/VitalSignIcon.png" 
-              alt="VitalSign Logo" 
-              style={{ 
-                width: '170px', 
-                height: '170px', 
-                borderRadius: '20px', 
-                border: '3px solid #00FF7F',
-                boxShadow: '0 0 20px rgba(0,255,127,0.2)',
-                objectFit: 'cover'
-              }} 
-            />
+        {/* RESTORED HEADER (Consistent with Home Page) */}
+
+        {/* CONTENT AREA (Scrollable) */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '40px' }}>
+          <div style={{ maxWidth: '1000px', margin: '0 auto 40px auto', textAlign: 'center' }}>
+            <h2 style={{ fontSize: '48px', marginBottom: '10px' }}>
+              <ShinyText text="Gesture Library" speed={3} />
+            </h2>
+            <p style={{ color: 'var(--vs-muted)', fontSize: '18px' }}>
+              Master the signals to communicate with VitalSign AI.
+            </p>
           </div>
 
-          <h1 style={{ fontSize: '48px', marginBottom: '10px' }}>
-            <ShinyText text="Gesture Library" speed={3} />
-          </h1>
-          <p style={{ color: '#94a3b8', fontSize: '18px' }}>
-            Master the signals to communicate with VitalSign AI.
-          </p>
-        </div>
-
-        {/* Grid of Gestures */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: '20px',
-          maxWidth: '1000px',
-          margin: '0 auto',
-          paddingBottom: '120px' 
-        }}>
-          {gestures.map((g) => (
-            <div key={g.name} className="gesture-card">
-              <div style={{ fontSize: '48px', marginBottom: '15px' }}>{g.icon}</div>
-              <h3 style={{ 
-                color: '#00FF7F', 
-                fontSize: '20px', 
-                fontWeight: 'bold', 
-                marginBottom: '10px',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
-              }}>
-                {g.name}
-              </h3>
-              <p style={{ color: '#cbd5e1', lineHeight: '1.5' }}>
-                {g.desc}
-              </p>
-            </div>
-          ))}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '20px',
+            maxWidth: '1000px',
+            margin: '0 auto',
+            paddingBottom: '120px' 
+          }}>
+            {gestures.map((g) => (
+              <div key={g.name} className="gesture-card">
+                <div style={{ fontSize: '48px', marginBottom: '15px' }}>{g.icon}</div>
+                <h3 style={{ 
+                  color: 'var(--vs-accent)', 
+                  fontSize: '20px', 
+                  fontWeight: 'bold', 
+                  marginBottom: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}>
+                  {g.name}
+                </h3>
+                <p style={{ color: 'var(--vs-muted)', lineHeight: '1.5' }}>
+                  {g.desc}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Fixed Floating Footer */}
@@ -143,7 +130,7 @@ export default function TutorialPage() {
             onClick={handleStartClick}
             style={{
               pointerEvents: 'auto',
-              background: '#00FF7F',
+              background: 'var(--vs-accent)',
               color: '#000',
               padding: '14px 40px',
               borderRadius: '50px',
