@@ -12,13 +12,15 @@ const nextConfig: NextConfig = {
       config.resolve = config.resolve ?? {};
       config.resolve.fallback = {
         ...(config.resolve.fallback ?? {}),
-        fs: false
-      };
-
-      config.resolve.alias = {
-        ...(config.resolve.alias ?? {}),
+        fs: false,
         // face-api.js pulls node-fetch which optionally requires 'encoding'
-        encoding: false
+        encoding: false,
+        // Additional Node.js modules that shouldn't be bundled for browser
+        stream: false,
+        crypto: false,
+        util: false,
+        // Prevent node-fetch from being bundled (browsers have native fetch)
+        'node-fetch': false
       };
     }
 
