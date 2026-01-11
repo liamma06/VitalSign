@@ -14,6 +14,11 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   const [faceEmotionConfidence, setFaceEmotionConfidence] = useState(0);
   const emotionInFlight = useRef(false);
   const lastControllerRef = useRef(null);
+  const lastEmotionUpdatedAt = useRef(0);
+
+  // RAF loop reads from refs (state values would be stale inside the loop)
+  const sentenceRef = useRef("");
+  const faceEmotionRef = useRef("Neutral");
   
   // HISTORY FOR DEBOUNCING AND MOTION
   const gestureHistory = useRef([]);
@@ -22,8 +27,24 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   const lastCommittedGesture = useRef(null);
   const handWasDetected = useRef(false);
 
+  // Hand-left-frame debounce
+  const noHandFrames = useRef(0);
+  const lastFinalizeAt = useRef(0);
+
   const HISTORY_SIZE = 10;
   const MOTION_WINDOW_MS = 500; 
+
+  // Tune to reduce false-finalize on brief landmark dropouts.
+  const NO_HAND_FRAME_THRESHOLD = 8;
+  const FINALIZE_COOLDOWN_MS = 800;
+
+  useEffect(() => {
+    sentenceRef.current = sentence;
+  }, [sentence]);
+
+  useEffect(() => {
+    faceEmotionRef.current = faceEmotion;
+  }, [faceEmotion]);
 
   const classifyGesture = (g) => {
     if (!g || g === "..." || g === "No Hand") {
@@ -73,9 +94,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   };
 
   const detectFaceEmotion = async () => {
-    try {
-      if (lastControllerRef.current) try { lastControllerRef.current.abort(); } catch (e) {}
-    } catch (e) {}
+    if (emotionInFlight.current) return;
     const imageDataUrl = captureFrameDataUrl();
     if (!imageDataUrl) return;
 
@@ -93,6 +112,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       const data = await res.json();
       if (data?.emotion) setFaceEmotion(data.emotion);
       if (typeof data?.confidence === "number") setFaceEmotionConfidence(data.confidence);
+      lastEmotionUpdatedAt.current = Date.now();
     } catch (err) {
     } finally {
       if (lastControllerRef.current === controller) lastControllerRef.current = null;
@@ -105,8 +125,15 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       const video = webcamRef.current?.video;
       if (!video || video.readyState !== 4) return;
       detectFaceEmotion();
-    }, 1000);
-    return () => clearInterval(id);
+    }, 1500);
+    return () => {
+      clearInterval(id);
+      try {
+        if (lastControllerRef.current) lastControllerRef.current.abort();
+      } catch (e) {}
+      lastControllerRef.current = null;
+      emotionInFlight.current = false;
+    };
   }, []);
 
   const predict = () => {
@@ -117,6 +144,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       const results = landmarker.detectForVideo(video, performance.now());
 
       if (results.landmarks?.length > 0) {
+        noHandFrames.current = 0;
         const lm = results.landmarks[0];
         draw(results.landmarks);
         
@@ -129,13 +157,24 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
         }
         debounceAndType(rawSign);
       } else {
-        if (handWasDetected.current && onSentenceComplete) {
-          const currentText = sentence.trim();
+        noHandFrames.current += 1;
+
+        const now = Date.now();
+        const canFinalize =
+          handWasDetected.current &&
+          onSentenceComplete &&
+          noHandFrames.current >= NO_HAND_FRAME_THRESHOLD &&
+          now - lastFinalizeAt.current > FINALIZE_COOLDOWN_MS;
+
+        if (canFinalize) {
+          const currentText = sentenceRef.current.trim();
           if (currentText.length > 0) {
-            onSentenceComplete(currentText, faceEmotion);
+            onSentenceComplete(currentText, faceEmotionRef.current);
             setSentence("");
           }
           handWasDetected.current = false;
+          lastFinalizeAt.current = now;
+          noHandFrames.current = 0;
         }
         setGesture("No Hand");
         gestureHistory.current = [];
@@ -322,12 +361,24 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       <div style={textContainerStyle}>
         {!compact ? (
           <>
+             <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+               <div style={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Emotion</div>
+               <div style={{ background: '#0b1220', color: '#c7f9d8', padding: '6px 10px', borderRadius: '8px', fontWeight: '600' }}>
+                 {faceEmotion} {faceEmotionConfidence ? `(${Math.round(faceEmotionConfidence * 100)}%)` : ''}
+               </div>
+             </div>
              <p style={{ color: '#aaa', margin: '0 0 10px 0', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '1px' }}>Current Sentence</p>
              <p style={{ fontSize: '32px', minHeight: '45px', margin: '0', fontWeight: '500' }}>{sentence}</p>
              <button onClick={() => { setSentence(""); }} style={{ marginTop: '20px', padding: '10px 25px', background: '#ff3b3b', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Clear Text</button>
           </>
         ) : (
           <>
+             <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <div style={{ color: '#666', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>Emotion</div>
+               <div style={{ background: '#f0f7ef', color: '#065f46', padding: '4px 8px', borderRadius: '6px', fontWeight: '600', fontSize: '12px' }}>
+                 {faceEmotion} {faceEmotionConfidence ? `(${Math.round(faceEmotionConfidence * 100)}%)` : ''}
+               </div>
+             </div>
              <p style={{ color: '#333', margin: '0 0 10px 0', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', fontWeight: '500' }}>Current Sentence</p>
              <p style={{ fontSize: '18px', minHeight: '30px', margin: '0', fontWeight: '500', color: '#333' }}>{sentence}</p>
           </>
