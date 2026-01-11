@@ -22,7 +22,7 @@ export default function HomePage() {
       height: '100vh',
       margin: 0,
       padding: 0,
-      background: '#000000',
+      background: 'var(--vs-bg)',
       overflow: 'hidden'
     }}>
       {/* PixelBlast Background */}
@@ -45,9 +45,9 @@ export default function HomePage() {
           }}
           variant="circle"
           pixelSize={6}
-          color="#E5E5E5"
+          color="#b84442"
           patternScale={3}
-          patternDensity={1.2}
+          patternDensity={1.0}
           pixelSizeJitter={0.5}
           enableRipples
           rippleSpeed={0.4}
@@ -74,15 +74,15 @@ export default function HomePage() {
         fontFamily: '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
-        textShadow: '0 0 30px rgba(255, 255, 255, 0.3), 0 0 60px rgba(255, 255, 255, 0.2), 0 0 90px rgba(255, 255, 255, 0.1)',
+        textShadow: '0 0 30px rgba(47, 154, 143, 0.4), 0 0 60px rgba(47, 154, 143, 0.3), 0 0 90px rgba(47, 154, 143, 0.2)',
         pointerEvents: 'none'
       }}>
         <ShinyText
           text="Vital Sign"
           speed={2}
           delay={0}
-          color="#E5E5E5"
-          shineColor="#FFFFFF"
+          color="var(--vs-text)"
+          shineColor="var(--vs-accent)"
           spread={120}
           direction="left"
           yoyo={false}
@@ -114,7 +114,7 @@ export default function HomePage() {
           <span style={{
             fontSize: '24px',
             fontWeight: '400',
-            color: '#E5E5E5',
+            color: 'var(--vs-muted)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
             fontFamily: '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
@@ -142,7 +142,7 @@ export default function HomePage() {
             >
               <path
                 d="M 0 30 L 60 30 L 65 8 L 70 30 L 75 30 L 120 30 L 125 8 L 130 30 L 135 30 L 180 30 L 185 8 L 190 30 L 195 30 L 240 30 L 245 8 L 250 30 L 255 30 L 300 30 L 305 8 L 310 30 L 360 30"
-                stroke="#FF0000"
+                stroke="var(--vs-red)"
                 strokeWidth="4"
                 fill="none"
                 strokeLinecap="round"
