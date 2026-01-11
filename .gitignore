@@ -1,8 +1,11 @@
 node_modules/
 .next/
+.next-build/
 dist/
 .turbo/
 .DS_Store
+
+tsconfig.tsbuildinfo
 
 .env
 .env.*
