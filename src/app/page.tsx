@@ -79,7 +79,6 @@ export default function Home() {
         const refined = String(refineData?.text ?? "").trim();
 
         if (refined) {
-          // 3. ADD ONLY THE AI RESULT
           setTranscript(prev => [
             ...prev,
             { text: refined, emotion: emotionLabel || "AI", timestamp: Date.now() }
