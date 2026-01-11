@@ -31,10 +31,10 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   const noHandFrames = useRef(0);
   const lastFinalizeAt = useRef(0);
 
-  const HISTORY_SIZE = 10;
+  // --- SENSITIVITY TUNING ---
+  const HISTORY_SIZE = 30; 
   const MOTION_WINDOW_MS = 500; 
 
-  // Tune to reduce false-finalize on brief landmark dropouts.
   const NO_HAND_FRAME_THRESHOLD = 8;
   const FINALIZE_COOLDOWN_MS = 800;
 
@@ -50,7 +50,8 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     if (!g || g === "..." || g === "No Hand") {
       return { kind: "none", baseWeight: 0, minCount: Infinity, typeMinCount: Infinity, typeDelayMs: Infinity };
     }
-    return { kind: "word", baseWeight: 2.5, minCount: 5, typeMinCount: 5, typeDelayMs: 600 };
+    // High threshold for stability
+    return { kind: "word", baseWeight: 2.5, minCount: 20, typeMinCount: 20, typeDelayMs: 600 };
   };
 
   const applyGestureToSentence = (prev, g) => {
@@ -62,14 +63,12 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
 
   useEffect(() => {
     const initAI = async () => {
-      // Load face-api.js emotion models
       try {
         await loadEmotionModels();
       } catch (err) {
         console.error('Failed to load emotion models:', err);
       }
 
-      // Load MediaPipe hand landmarker
       const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
       const nl = await HandLandmarker.createFromOptions(vision, {
         baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "GPU" },
@@ -171,8 +170,8 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     // Normalization scale
     const handScale = dist(wrist, middleK);
   
-    // Extended Logic
-    const isExtended = (tip, knuckle) => dist(tip, wrist) > dist(knuckle, wrist) + (handScale * 0.15);
+    // Extended Logic - Stricter Threshold
+    const isExtended = (tip, knuckle) => dist(tip, wrist) > dist(knuckle, wrist) + (handScale * 0.25);
     
     const f1 = isExtended(indexT, indexK); // Index
     const f2 = isExtended(middleT, middleK); // Middle
@@ -197,13 +196,27 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     const dy = endPos.y - startPos.y; 
     const dxView = -dx; 
 
-    // --- "HELLO" (Wave) ---
     const isPalmOpen = f1 && f2 && f3 && f4;
+    const isSideways = Math.abs(wrist.x - middleK.x) > Math.abs(wrist.y - middleK.y);
+
+    // --- "GOODBYE" (Salute) ---
+    // Criteria:
+    // 1. Palm Open (All fingers extended)
+    // 2. Fingers Together (Distance between index/middle tip is small)
+    // 3. Sideways orientation
+    // 4. Position: Upper half of screen (wrist.y < 0.6)
+    const fingersTogether = dist(indexT, middleT) < handScale * 0.4; 
+    if (isPalmOpen && fingersTogether && isSideways && wrist.y < 0.6) {
+        return "GOODBYE";
+    }
+
+    // --- "HELLO" (Wave) ---
     let wiggleEnergy = 0;
     for(let i=0; i < motionBuffer.current.length - 1; i++){
         wiggleEnergy += Math.abs(motionBuffer.current[i].x - motionBuffer.current[i+1].x);
     }
-    if (isPalmOpen && (wiggleEnergy > 0.4 || Math.abs(dxView) > 0.15)) {
+    // Only wave if fingers are NOT pressed together (to distinguish from Salute)
+    if (isPalmOpen && !fingersTogether && (wiggleEnergy > 0.4 || Math.abs(dxView) > 0.15)) {
         return "HELLO";
     }
 
@@ -215,15 +228,13 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     // --- STATIC GESTURES ---
 
     const isThumbOut = dist(thumbT, indexK) > handScale * 0.6;
-    const isSideways = Math.abs(wrist.x - middleK.x) > Math.abs(wrist.y - middleK.y);
 
-    // --- "HELP" (Signal for Help - Stage 1) ---
-    // 4 Fingers Open + Thumb Tucked (Not extended)
+    // --- "HELP" ---
     if (isPalmOpen && !isThumbOut) {
         return "HELP";
     }
 
-    // --- "LOVE" (ILY Sign) ---
+    // --- "LOVE" ---
     if (f1 && !f2 && !f3 && f4 && isThumbOut) {
         return "LOVE";
     }
@@ -233,38 +244,37 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
         if (isSideways) return "CALL";
     }
 
-    // --- "ME" (Pointing at self with thumb) ---
+    // --- "ME" ---
     if (!f1 && !f2 && !f3 && !f4) {
         const isThumbMostlyOut = dist(thumbT, indexK) > handScale * 0.4;
         if (isThumbMostlyOut) {
             const isHorizontal = Math.abs(thumbT.y - indexK.y) < handScale * 0.5;
-            // Ensure pointing inward (Thumb tip between wrist/pinky X plane)
             const isPointingIn = Math.abs(thumbT.x - pinkyK.x) < Math.abs(thumbT.x - indexK.x) || 
                                  Math.abs(thumbT.x - wrist.x) < handScale * 0.3;
             if (isHorizontal) return "ME";
         }
     }
 
-    // --- "YES" (Thumbs Up) ---
+    // --- "YES" ---
     if (!f1 && !f2 && !f3 && !f4) {
         if (thumbT.y < indexK.y - (handScale * 0.2)) {
             return "YES";
         }
     }
 
-    // --- "NO" (Thumbs Down) ---
+    // --- "NO" ---
     if (!f1 && !f2 && !f3 && !f4) {
          if (thumbT.y > wrist.y + (handScale * 0.2)) {
              return "NO";
          }
     }
 
-    // --- "I" (Pinky Up) ---
+    // --- "I" ---
     if (!f1 && !f2 && !f3 && f4 && !isThumbOut) {
         return "I";
     }
 
-    // --- "YOU" (Point) ---
+    // --- "YOU" ---
     if (f1 && !f2 && !f3 && !f4) {
         return "YOU";
     }
@@ -281,6 +291,8 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       counts[g] = (counts[g] || 0) + 1;
     });
 
+    if (Object.keys(counts).length === 0) return;
+
     const best = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
     const count = counts[best];
     const meta = classifyGesture(best);
@@ -295,6 +307,8 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
        setGesture(best);
        lastTypedTime.current = now;
        lastCommittedGesture.current = best;
+       
+       gestureHistory.current = [];
     } else if (best !== "..." && best !== "No Hand" && count >= 3) {
        setGesture(best); 
     }
@@ -321,7 +335,6 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
 
   useEffect(() => { if (landmarker) predict(); }, [landmarker]);
 
-  // UI STYLES
   const containerStyle = compact 
     ? { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }
     : { display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#121212', minHeight: '100vh', padding: '20px', color: 'white', fontFamily: 'sans-serif' };
