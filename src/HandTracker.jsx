@@ -40,11 +40,18 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       return { kind: "command", baseWeight: 1.7, minCount: 6, typeMinCount: 6, typeDelayMs: 700 };
     }
     if (g === "HELLO" || g === "YES" || g === "NO") {
-      // Prefer words over letters: lower stability requirement + higher vote weight.
-      return { kind: "word", baseWeight: 2.5, minCount: 4, typeMinCount: 3, typeDelayMs: 550 };
+      // Words: commit immediately when detected (very low threshold for reliability)
+      return { kind: "word", baseWeight: 2.5, minCount: 2, typeMinCount: 2, typeDelayMs: 100 };
     }
     // Letters: require higher confidence to actually *type*.
     return { kind: "letter", baseWeight: 1.0, minCount: 10, typeMinCount: 13, typeDelayMs: 1200 };
+  };
+
+  // Helper function to extract complete text - simply use what's visible in the preview
+  // This ensures words (YES, HELLO, NO) are included if they were committed to sentence
+  const getCompleteText = () => {
+    // Simply return sentence + pendingLetters - words are already in sentence if committed
+    return (sentence + pendingLettersRef.current).trim();
   };
 
   const applyGestureToSentence = (prev, g) => {
@@ -177,9 +184,8 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       } else {
         // Hand moved out of frame - if hand was previously detected and there's text, trigger callback
         if (handWasDetected.current && onSentenceComplete) {
-          // Capture everything visible in the text box: sentence (all committed words and letters) + pendingLetters (letters not yet committed)
-          // This matches what's shown in the sentencePreview
-          const currentText = (sentence + pendingLettersRef.current).trim();
+          // Capture complete text including any uncommitted words from gestureHistory
+          const currentText = getCompleteText();
           if (currentText.length > 0) {
             // Trigger callback with all text (words and letters) and current emotion
             onSentenceComplete(currentText, faceEmotion);
@@ -345,19 +351,20 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       });
     }
 
-    // 3a. Immediate commit for words (avoid hold-time for motion-based gestures)
-    const now = Date.now();
-    const timeSinceLastTypeImmediate = now - lastTypedTime.current;
-    // Only commit if it's a different gesture or enough time has passed
-    if (bestMeta.kind === "word" && bestEntry.count >= bestMeta.typeMinCount && 
-        (lastCommittedGesture.current !== best || timeSinceLastTypeImmediate > 2000)) {
-      setSentence(prev => applyGestureToSentence(prev + pendingLettersRef.current, best));
-      pendingLettersRef.current = "";
-      setPendingLetters("");
-      setGesture(best);
-      lastTypedTime.current = now;
-      letterStartTime.current = now;
-      lastCommittedGesture.current = best;
+    // 3a. Immediate commit for words (YES, HELLO, NO) - commit as soon as detected but prevent repeats
+    if (bestMeta.kind === "word" && bestEntry.count >= bestMeta.typeMinCount) {
+      const now = Date.now();
+      const timeSinceLastType = now - lastTypedTime.current;
+      // Commit word immediately (applies to all words: YES, HELLO, NO), but prevent same word from being committed repeatedly (1 second cooldown)
+      if (lastCommittedGesture.current !== best || timeSinceLastType > 1000) {
+        setSentence(prev => applyGestureToSentence(prev + pendingLettersRef.current, best));
+        pendingLettersRef.current = "";
+        setPendingLetters("");
+        setGesture(best);
+        lastTypedTime.current = now;
+        letterStartTime.current = now;
+        lastCommittedGesture.current = best;
+      }
       return; // Skip hold-based typing path
     }
 
