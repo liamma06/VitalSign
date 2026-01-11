@@ -1,4 +1,15 @@
-# VitalSign (EmotiSign MVP)
+<div align="center">
+  <img src="An AI-powered bridge between sign language and speech that doesn't just translate what you say, but how you feel." />
+</div>
+
+<h1 align = "center">
+    VitalSign
+</h1>
+
+<div align = "center"> An AI-powered bridge between sign language and speech that doesn't just translate what you say, but how you feel. </div>
+
+<br>
+<br>
 
 Web app scaffold for an accessibility tool that translates sign + emotional intent into expressive speech.
 
