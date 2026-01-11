@@ -9,9 +9,13 @@ interface TranscriptItem {
 interface TranscriptPanelProps {
   history: TranscriptItem[];
   onClear: () => void;
+  voice: "female" | "male";
+  onVoiceChange: (voice: "female" | "male") => void;
+  volume: number;
+  onVolumeChange: (volume: number) => void;
 }
 
-export function TranscriptPanel({ history, onClear }: TranscriptPanelProps) {
+export function TranscriptPanel({ history, onClear, voice, onVoiceChange, volume, onVolumeChange }: TranscriptPanelProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when history updates
@@ -20,6 +24,39 @@ export function TranscriptPanel({ history, onClear }: TranscriptPanelProps) {
   }, [history]);
 
   return (
+    <>
+      <style>{`
+        .volume-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 120px;
+          height: 6px;
+          border-radius: 3px;
+          background: linear-gradient(to right, var(--vs-accent) 0%, var(--vs-accent) ${volume}%, var(--vs-border) ${volume}%, var(--vs-border) 100%);
+          outline: none;
+          cursor: pointer;
+        }
+        .volume-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: var(--vs-accent);
+          cursor: pointer;
+          border: 2px solid var(--vs-bg);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .volume-slider::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: var(--vs-accent);
+          cursor: pointer;
+          border: 2px solid var(--vs-bg);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+      `}</style>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       
       {/* HEADER */}
@@ -97,6 +134,75 @@ export function TranscriptPanel({ history, onClear }: TranscriptPanelProps) {
         )}
         <div ref={endRef} />
       </div>
+
+      {/* FOOTER WITH CONTROLS */}
+      <div style={{
+        padding: '20px 28px',
+        borderTop: '1px solid var(--vs-border)',
+        background: 'rgba(0, 0, 0, 0.2)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '24px'
+      }}>
+        {/* Voice Selection */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span style={{ fontSize: '14px', color: 'var(--vs-muted)', fontWeight: '600' }}>Voice:</span>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => onVoiceChange('female')}
+              style={{
+                background: voice === 'female' ? 'var(--vs-accent)' : 'rgba(255, 255, 255, 0.05)',
+                border: `1px solid ${voice === 'female' ? 'var(--vs-accent)' : 'var(--vs-border)'}`,
+                color: voice === 'female' ? '#000' : 'var(--vs-text)',
+                padding: '8px 16px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Female
+            </button>
+            <button
+              onClick={() => onVoiceChange('male')}
+              style={{
+                background: voice === 'male' ? 'var(--vs-accent)' : 'rgba(255, 255, 255, 0.05)',
+                border: `1px solid ${voice === 'male' ? 'var(--vs-accent)' : 'var(--vs-border)'}`,
+                color: voice === 'male' ? '#000' : 'var(--vs-text)',
+                padding: '8px 16px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Male
+            </button>
+          </div>
+        </div>
+
+        {/* Volume Control */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '0 0 auto' }}>
+          <span style={{ fontSize: '18px', cursor: 'pointer' }} onClick={() => onVolumeChange(volume === 0 ? 100 : 0)}>
+            {volume === 0 ? '🔇' : volume < 50 ? '🔉' : '🔊'}
+          </span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={volume}
+            onChange={(e) => onVolumeChange(Number(e.target.value))}
+            className="volume-slider"
+          />
+          <span style={{ fontSize: '14px', color: 'var(--vs-muted)', fontWeight: '600', minWidth: '35px', textAlign: 'right' }}>
+            {volume}%
+          </span>
+        </div>
+      </div>
     </div>
+    </>
   );
 }
