@@ -7,14 +7,12 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   // Ensure browser builds don't choke on Node-only deps pulled by some ML libs.
   outputFileTracingRoot: projectRoot,
-  webpack: (config, { isServer, webpack }) => {
+  webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve = config.resolve ?? {};
       config.resolve.fallback = {
         ...(config.resolve.fallback ?? {}),
         fs: false,
-        // face-api.js pulls node-fetch which optionally requires 'encoding'
-        encoding: false,
         // Additional Node.js modules that shouldn't be bundled for browser
         stream: false,
         crypto: false,
@@ -23,14 +21,12 @@ const nextConfig: NextConfig = {
         'node-fetch': false
       };
       
-      // Ignore encoding module for browser builds
-      config.plugins = config.plugins ?? [];
-      config.plugins.push(
-        new webpack.IgnorePlugin({
-          resourceRegExp: /^encoding$/,
-          contextRegExp: /node-fetch/
-        })
-      );
+      // face-api.js pulls node-fetch which optionally requires 'encoding'
+      // Use alias to prevent webpack from resolving it
+      config.resolve.alias = {
+        ...(config.resolve.alias ?? {}),
+        encoding: false
+      };
     }
 
     return config;
