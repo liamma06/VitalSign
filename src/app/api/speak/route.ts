@@ -13,7 +13,6 @@ function clamp01(n: number): number {
 }
 
 function buildStability(emotion: string | null): number {
-	// Max compatibility: only vary stability by emotion.
 	const e = (emotion ?? "").toLowerCase();
 	if (e === "happy") return 0.2;
 	if (e === "sad") return 0.6;

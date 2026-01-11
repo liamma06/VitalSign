@@ -169,7 +169,7 @@ export default function Home() {
             onVoiceChange={setVoice}
             volume={volume}
             onVolumeChange={setVolume}
-            isProcessing={isProcessing} // <--- PASS THE STATE PROP
+            isProcessing={isProcessing}
           />
         </div>
 
