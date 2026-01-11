@@ -79,9 +79,13 @@ export default function VoicePage() {
     }
   };
 
-  const handleSentenceComplete = (completedText: string) => {
-    // When pause detected, populate the text input with completed sign language text
+  const handleSentenceComplete = (completedText: string, detectedEmotion?: string) => {
+    // When pause detected or hand moves out of frame, populate the text input with completed sign language text
     setText(completedText);
+    // Also populate emotion if detected
+    if (detectedEmotion && detectedEmotion !== "Neutral") {
+      setEmotion(detectedEmotion);
+    }
   };
 
   return (

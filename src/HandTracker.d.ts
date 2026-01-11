@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface HandTrackerProps {
-  onSentenceComplete?: (text: string) => void;
+  onSentenceComplete?: (text: string, emotion?: string) => void;
   compact?: boolean;
 }
 

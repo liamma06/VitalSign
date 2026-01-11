@@ -23,12 +23,10 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   const lastTypedTime = useRef(0);
   const letterStartTime = useRef(0);
   const lastCommittedGesture = useRef(null);
-  const lastGestureTime = useRef(Date.now());
   const handWasDetected = useRef(false); // Track if hand was previously detected
 
   const HISTORY_SIZE = 15;
   const MOTION_WINDOW_MS = 350;
-  const PAUSE_THRESHOLD_MS = 3000; // 3 seconds pause detection
 
   useEffect(() => {
     pendingLettersRef.current = pendingLetters;
@@ -171,12 +169,27 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
         if (motionBuffer.current.length > 20) motionBuffer.current.pop();
 
         const rawSign = analyzeASL(lm);
-        // Update last gesture time when a gesture is detected (not "...")
+        // Mark that hand was detected when a gesture is detected (not "...")
         if (rawSign !== "..." && rawSign !== "No Hand") {
-          lastGestureTime.current = Date.now();
+          handWasDetected.current = true; // Mark that hand was detected
         }
         debounceAndType(rawSign);
       } else {
+        // Hand moved out of frame - if hand was previously detected and there's text, trigger callback
+        if (handWasDetected.current && onSentenceComplete) {
+          // Capture everything visible in the text box: sentence (all committed words and letters) + pendingLetters (letters not yet committed)
+          // This matches what's shown in the sentencePreview
+          const currentText = (sentence + pendingLettersRef.current).trim();
+          if (currentText.length > 0) {
+            // Trigger callback with all text (words and letters) and current emotion
+            onSentenceComplete(currentText, faceEmotion);
+            // Reset after callback
+            setSentence("");
+            setPendingLetters("");
+            pendingLettersRef.current = "";
+          }
+          handWasDetected.current = false; // Reset flag after callback or if no text
+        }
         setGesture("No Hand");
         gestureHistory.current = [];
       }
@@ -398,26 +411,6 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
 
   useEffect(() => { if (landmarker) predict(); }, [landmarker]);
 
-  // Pause detection: check every 500ms if 3 seconds have passed without gesture
-  useEffect(() => {
-    if (!onSentenceComplete) return; // Only run if callback is provided
-
-    const pauseCheckInterval = setInterval(() => {
-      const timeSinceLastGesture = Date.now() - lastGestureTime.current;
-      const currentText = (sentence + pendingLettersRef.current).trim();
-      
-      if (timeSinceLastGesture >= PAUSE_THRESHOLD_MS && currentText.length > 0) {
-        // Pause detected with text - trigger callback and reset
-        onSentenceComplete(currentText);
-        setSentence("");
-        setPendingLetters("");
-        pendingLettersRef.current = "";
-        lastGestureTime.current = Date.now(); // Reset timer to prevent immediate re-trigger
-      }
-    }, 500); // Check every 500ms
-
-    return () => clearInterval(pauseCheckInterval);
-  }, [sentence, onSentenceComplete]);
 
   const sentencePreview = (() => {
     // Show committed sentence + a live sequence of stable letters only (no word preview to avoid flicker).
