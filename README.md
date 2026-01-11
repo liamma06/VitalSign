@@ -1,5 +1,8 @@
+<br>
 <div align="center">
-  <img src="An AI-powered bridge between sign language and speech that doesn't just translate what you say, but how you feel." />
+  <img src="assets/VitalSignIcon.png" width="300" />
+</div>
+
 </div>
 
 <h1 align = "center">
