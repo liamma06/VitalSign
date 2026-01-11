@@ -44,6 +44,7 @@ body {
   height: 100vh;
   overflow: hidden;
   background: var(--vs-bg);
+  color: var(--vs-text);
   position: fixed;
   top: 0;
   left: 0;
