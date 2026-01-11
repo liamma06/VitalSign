@@ -214,13 +214,27 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
 
     // --- STATIC GESTURES ---
 
-    const isThumbOut = dist(thumbT, indexK) > handScale * 0.6;
     const isSideways = Math.abs(wrist.x - middleK.x) > Math.abs(wrist.y - middleK.y);
 
+    // Thumb distance helpers
+    const thumbToWrist = dist(thumbT, wrist);
+    const thumbToIndexK = dist(thumbT, indexK);
+    const isThumbOut = thumbToIndexK > handScale * 0.6;
+
+    // Thumb-tucked detection: require thumb to be relatively close to the wrist
+    // and near the index knuckle; include vertical proximity to the wrist.
+    const isThumbTucked =
+      !isThumbOut &&
+      thumbToWrist < handScale * 0.55 &&
+      thumbToIndexK < handScale * 0.55 &&
+      Math.abs(thumbT.y - wrist.y) < handScale * 0.4;
+
     // --- "HELP" (Signal for Help - Stage 1) ---
-    // 4 Fingers Open + Thumb Tucked (Not extended)
-    if (isPalmOpen && !isThumbOut) {
-        return "HELP";
+    // Primary: 4 fingers extended and thumb tucked near palm.
+    // Fallbacks: if the thumb is simply not extended or is reasonably close
+    // to the wrist we still accept HELP to avoid missing valid signs.
+    if (isPalmOpen && !isThumbOut && (isThumbTucked || thumbToWrist < handScale * 0.7 || thumbToIndexK < handScale * 0.75)) {
+      return "HELP";
     }
 
     // --- "LOVE" (ILY Sign) ---
