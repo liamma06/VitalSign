@@ -14,14 +14,16 @@ export function CameraPanel({ children }: { children: ReactNode }) {
         zIndex: 10
       }}>
         <div style={{ 
-          background: 'rgba(0,0,0,0.6)', 
-          backdropFilter: 'blur(4px)', 
-          padding: '6px 12px', 
-          borderRadius: '8px',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: '#00FF7F',
-          border: '1px solid rgba(0,255,127,0.2)'
+          background: 'rgba(0,0,0,0.7)', 
+          backdropFilter: 'blur(12px)', 
+          padding: '8px 14px', 
+          borderRadius: '10px',
+          fontSize: '11px',
+          fontWeight: '600',
+          color: 'var(--vs-accent)',
+          border: '1px solid rgb(var(--vs-accent-rgb) / 0.3)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(var(--vs-accent-rgb), 0.15)',
+          letterSpacing: '0.5px'
         }}>
           ● LIVE FEED
         </div>

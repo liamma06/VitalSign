@@ -4,13 +4,37 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* VitalSign palette (derived from logo) */
+  --vs-red-rgb: 210 75 73;
+  --vs-accent-rgb: 47 154 143;
+  --vs-accent-blue-rgb: 47 110 166;
+
+  /* UI surfaces */
+  --vs-bg: rgb(6 18 22);
+  --vs-surface: rgb(10 31 38);
+  --vs-surface-2: rgb(9 26 33);
+  --vs-border: rgb(255 255 255 / 0.12);
+  --vs-border-strong: rgb(255 255 255 / 0.18);
+
+  /* Text */
+  --vs-text: rgb(248 250 252);
+  --vs-muted: rgb(226 232 240 / 0.72);
+  --vs-muted-2: rgb(226 232 240 / 0.58);
+
+  /* Accents */
+  --vs-accent: rgb(var(--vs-accent-rgb));
+  --vs-accent-blue: rgb(var(--vs-accent-blue-rgb));
+  --vs-red: rgb(var(--vs-red-rgb));
+}
+
 html {
   margin: 0 !important;
   padding: 0 !important;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #000000;
+  background: var(--vs-bg);
 }
 
 body {
@@ -19,7 +43,7 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #000000;
+  background: var(--vs-bg);
   position: fixed;
   top: 0;
   left: 0;

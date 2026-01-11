@@ -337,11 +337,11 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     : { display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#121212', minHeight: '100vh', padding: '20px', color: 'white', fontFamily: 'sans-serif' };
   
   const videoContainerStyle = compact
-    ? { position: 'relative', width: '100%', maxWidth: '640px', borderRadius: '15px', overflow: 'hidden', border: '2px solid #333', marginBottom: '1rem' }
+    ? { position: 'relative', width: '100%', maxWidth: '720px', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem' }
     : { position: 'relative', width: '100%', maxWidth: '720px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #333' };
 
   const textContainerStyle = compact
-    ? { width: '100%', maxWidth: '640px', background: '#f5f5f5', padding: '15px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '1rem' }
+    ? { position: 'absolute', bottom: '24px', left: '24px', right: '24px', background: 'rgba(39, 39, 39, 0.95)', backdropFilter: 'blur(16px)', padding: '18px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)' }
     : { marginTop: '20px', width: '100%', maxWidth: '720px', background: '#1e1e1e', padding: '25px', borderRadius: '15px', border: '1px solid #444' };
 
   return (
@@ -378,14 +378,14 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
           </>
         ) : (
           <>
-             <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-               <div style={{ color: '#666', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>Emotion</div>
-               <div style={{ background: '#f0f7ef', color: '#065f46', padding: '4px 8px', borderRadius: '6px', fontWeight: '600', fontSize: '12px' }}>
+             <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+               <div style={{ color: 'var(--vs-red)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Emotion</div>
+               <div style={{ background: 'rgba(47, 154, 143, 0.2)', color: 'var(--vs-accent)', padding: '5px 10px', borderRadius: '8px', fontWeight: '600', fontSize: '11px', border: '1px solid rgba(47, 154, 143, 0.35)' }}>
                  {faceEmotion} {faceEmotionConfidence ? `(${Math.round(faceEmotionConfidence * 100)}%)` : ''}
                </div>
              </div>
-             <p style={{ color: '#333', margin: '0 0 10px 0', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', fontWeight: '500' }}>Current Sentence</p>
-             <p style={{ fontSize: '18px', minHeight: '30px', margin: '0', fontWeight: '500', color: '#333' }}>{sentence}</p>
+             <p style={{ color: 'var(--vs-red)', margin: '0 0 8px 0', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.5px', fontWeight: '600' }}>Current Sentence</p>
+             <p style={{ fontSize: '15px', minHeight: '22px', margin: '0', fontWeight: '500', color: 'var(--vs-text)', lineHeight: '1.5' }}>{sentence}</p>
           </>
         )}
       </div>
