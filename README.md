@@ -6,7 +6,7 @@
     VitalSign
 </h1>
 
-<div align = "center"> An AI-powered bridge between sign language and speech that doesn't just translate what you say, but how you feel. </div>
+<div align = "center"> An AI-powered bridge between sign language & speech that doesn't just translate what you say, but how you feel. </div>
 
 <br>
 <br>
