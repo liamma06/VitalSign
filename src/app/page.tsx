@@ -26,6 +26,7 @@ async function playAudioInBrowser(audioBuffer: ArrayBuffer): Promise<void> {
 export default function Home() {
   // Store the history of translated sentences
   const [transcript, setTranscript] = useState<{ text: string; emotion: string; timestamp: number }[]>([]);
+  const pipelineInFlight = useRef(false);
 
   const pipelineInFlight = useRef(false);
 

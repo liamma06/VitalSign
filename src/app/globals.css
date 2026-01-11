@@ -1,0 +1,62 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000000;
+}
+
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000000;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+@keyframes heartbeat {
+  0%, 100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  10% {
+    opacity: 0.8;
+    transform: scaleX(0.95);
+  }
+  20% {
+    opacity: 1;
+    transform: scaleX(1.1);
+  }
+  30% {
+    opacity: 0.9;
+    transform: scaleX(0.98);
+  }
+  40% {
+    opacity: 1;
+    transform: scaleX(1.05);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes ecgScroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-180px);
+  }
+}
