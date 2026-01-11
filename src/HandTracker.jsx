@@ -31,10 +31,10 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   const noHandFrames = useRef(0);
   const lastFinalizeAt = useRef(0);
 
-  const HISTORY_SIZE = 10;
+  // --- SENSITIVITY TUNING ---
+  const HISTORY_SIZE = 30; 
   const MOTION_WINDOW_MS = 500; 
 
-  // Tune to reduce false-finalize on brief landmark dropouts.
   const NO_HAND_FRAME_THRESHOLD = 8;
   const FINALIZE_COOLDOWN_MS = 800;
 
@@ -50,7 +50,16 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     if (!g || g === "..." || g === "No Hand") {
       return { kind: "none", baseWeight: 0, minCount: Infinity, typeMinCount: Infinity, typeDelayMs: Infinity };
     }
-    return { kind: "word", baseWeight: 2.5, minCount: 5, typeMinCount: 5, typeDelayMs: 600 };
+    
+    // --- SPECIAL CASE: HELLO ---
+    // Dynamic gestures (movement) are harder to hold perfectly.
+    // We lower the threshold (10 frames vs 20) so a quick wave registers.
+    if (g === "HELLO") {
+       return { kind: "word", baseWeight: 2.5, minCount: 10, typeMinCount: 10, typeDelayMs: 600 };
+    }
+
+    // Static gestures need stability (20 frames / ~0.6s)
+    return { kind: "word", baseWeight: 2.5, minCount: 20, typeMinCount: 20, typeDelayMs: 600 };
   };
 
   const applyGestureToSentence = (prev, g) => {
@@ -62,14 +71,12 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
 
   useEffect(() => {
     const initAI = async () => {
-      // Load face-api.js emotion models
       try {
         await loadEmotionModels();
       } catch (err) {
         console.error('Failed to load emotion models:', err);
       }
 
-      // Load MediaPipe hand landmarker
       const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
       const nl = await HandLandmarker.createFromOptions(vision, {
         baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "GPU" },
@@ -172,44 +179,46 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     const handScale = dist(wrist, middleK);
   
     // Extended Logic
-    const isExtended = (tip, knuckle) => dist(tip, wrist) > dist(knuckle, wrist) + (handScale * 0.15);
+    const isExtended = (tip, knuckle) => dist(tip, wrist) > dist(knuckle, wrist) + (handScale * 0.25);
     
-    const f1 = isExtended(indexT, indexK); // Index
-    const f2 = isExtended(middleT, middleK); // Middle
-    const f3 = isExtended(ringT, ringK);   // Ring
-    const f4 = isExtended(pinkyT, pinkyK); // Pinky
-  
-    // --- 1. MOTION ANALYSIS ---
-    let startPos = wrist;
-    let endPos = wrist;
+    const f1 = isExtended(indexT, indexK); 
+    const f2 = isExtended(middleT, middleK); 
+    const f3 = isExtended(ringT, ringK);   
+    const f4 = isExtended(pinkyT, pinkyK); 
     
-    if (motionBuffer.current.length > 5) {
-      endPos = motionBuffer.current[0];
-      for (let i = 0; i < motionBuffer.current.length; i++) {
-        if (Date.now() - motionBuffer.current[i].time > 400) {
-          startPos = motionBuffer.current[i];
-          break;
-        }
-      }
-    }
-    
-    const dx = endPos.x - startPos.x;
-    const dy = endPos.y - startPos.y; 
-    const dxView = -dx; 
-
-    // --- "HELLO" (Wave) ---
     const isPalmOpen = f1 && f2 && f3 && f4;
-    let wiggleEnergy = 0;
-    for(let i=0; i < motionBuffer.current.length - 1; i++){
-        wiggleEnergy += Math.abs(motionBuffer.current[i].x - motionBuffer.current[i+1].x);
-    }
-    if (isPalmOpen && (wiggleEnergy > 0.4 || Math.abs(dxView) > 0.15)) {
-        return "HELLO";
+    const isSideways = Math.abs(wrist.x - middleK.x) > Math.abs(wrist.y - middleK.y);
+    const fingersTogether = dist(indexT, middleT) < handScale * 0.4; 
+
+    // --- 1. HELLO (Wave) ---
+    if (isPalmOpen && !fingersTogether) {
+        let velocityChanges = 0;
+        let lastTrend = 0; 
+        for(let i=0; i < motionBuffer.current.length - 1; i++){
+            const diff = motionBuffer.current[i].x - motionBuffer.current[i+1].x;
+            if (Math.abs(diff) > 0.015) {
+                const currentTrend = diff > 0 ? 1 : -1;
+                if (lastTrend !== 0 && currentTrend !== lastTrend) {
+                    velocityChanges++;
+                }
+                lastTrend = currentTrend;
+            }
+        }
+        // REDUCED REQUIREMENT: 2 swipes (Left->Right) is enough
+        if (velocityChanges >= 2) {
+            return "HELLO";
+        }
     }
 
-    // --- "THANK YOU" ---
-    if (isPalmOpen && dy > 0.10) { 
-        return "THANK YOU";
+    // --- THANK YOU ---
+    if (isPalmOpen && motionBuffer.current.length > 5) {
+         const dy = motionBuffer.current[0].y - motionBuffer.current[5].y;
+         if (dy > 0.10) return "THANK YOU";
+    }
+
+    // --- GOODBYE (Salute) ---
+    if (isPalmOpen && fingersTogether && isSideways && wrist.y < 0.6) {
+        return "GOODBYE";
     }
 
     // --- STATIC GESTURES ---
@@ -237,48 +246,47 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       return "HELP";
     }
 
-    // --- "LOVE" (ILY Sign) ---
+    // --- LOVE ---
     if (f1 && !f2 && !f3 && f4 && isThumbOut) {
         return "LOVE";
     }
 
-    // --- "CALL" ---
+    // --- CALL ---
     if (!f1 && !f2 && !f3 && f4 && isThumbOut) {
         if (isSideways) return "CALL";
     }
 
-    // --- "ME" (Pointing at self with thumb) ---
+    // --- ME ---
     if (!f1 && !f2 && !f3 && !f4) {
         const isThumbMostlyOut = dist(thumbT, indexK) > handScale * 0.4;
         if (isThumbMostlyOut) {
             const isHorizontal = Math.abs(thumbT.y - indexK.y) < handScale * 0.5;
-            // Ensure pointing inward (Thumb tip between wrist/pinky X plane)
             const isPointingIn = Math.abs(thumbT.x - pinkyK.x) < Math.abs(thumbT.x - indexK.x) || 
                                  Math.abs(thumbT.x - wrist.x) < handScale * 0.3;
             if (isHorizontal) return "ME";
         }
     }
 
-    // --- "YES" (Thumbs Up) ---
+    // --- YES ---
     if (!f1 && !f2 && !f3 && !f4) {
         if (thumbT.y < indexK.y - (handScale * 0.2)) {
             return "YES";
         }
     }
 
-    // --- "NO" (Thumbs Down) ---
+    // --- NO ---
     if (!f1 && !f2 && !f3 && !f4) {
          if (thumbT.y > wrist.y + (handScale * 0.2)) {
              return "NO";
          }
     }
 
-    // --- "I" (Pinky Up) ---
+    // --- I ---
     if (!f1 && !f2 && !f3 && f4 && !isThumbOut) {
         return "I";
     }
 
-    // --- "YOU" (Point) ---
+    // --- YOU ---
     if (f1 && !f2 && !f3 && !f4) {
         return "YOU";
     }
@@ -295,6 +303,8 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       counts[g] = (counts[g] || 0) + 1;
     });
 
+    if (Object.keys(counts).length === 0) return;
+
     const best = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
     const count = counts[best];
     const meta = classifyGesture(best);
@@ -309,6 +319,8 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
        setGesture(best);
        lastTypedTime.current = now;
        lastCommittedGesture.current = best;
+       
+       gestureHistory.current = [];
     } else if (best !== "..." && best !== "No Hand" && count >= 3) {
        setGesture(best); 
     }
@@ -335,23 +347,29 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
 
   useEffect(() => { if (landmarker) predict(); }, [landmarker]);
 
-  // UI STYLES
   const containerStyle = compact 
     ? { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }
     : { display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#121212', minHeight: '100vh', padding: '20px', color: 'white', fontFamily: 'sans-serif' };
   
   const videoContainerStyle = compact
-    ? { position: 'relative', width: '100%', maxWidth: '720px', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem' }
-    : { position: 'relative', width: '100%', maxWidth: '720px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #333' };
+    ? { position: 'relative', width: '100%', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem' }
+    : { position: 'relative', width: '100%', borderRadius: '15px', overflow: 'hidden', border: '3px solid #333' };
 
   const textContainerStyle = compact
     ? { position: 'absolute', bottom: '24px', left: '24px', right: '24px', background: 'rgba(39, 39, 39, 0.95)', backdropFilter: 'blur(16px)', padding: '18px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)' }
-    : { marginTop: '20px', width: '100%', maxWidth: '720px', background: '#1e1e1e', padding: '25px', borderRadius: '15px', border: '1px solid #444' };
+    : { marginTop: '20px', width: '100%', background: '#1e1e1e', padding: '25px', borderRadius: '15px', border: '1px solid #444' };
 
   return (
     <div style={containerStyle}>
       <div style={videoContainerStyle}>
-        <Webcam ref={webcamRef} mirrored={true} style={{ width: '100%', display: 'block' }} />
+        <Webcam ref={webcamRef}
+                videoConstraints={{
+                  width: 1080, 
+                  height: 560,
+                  facingMode: "user"
+                }} 
+                mirrored={true} 
+                style={{ width: '100%', display: 'block' }} />
         <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
         {!compact && (
           <>

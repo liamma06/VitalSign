@@ -3,6 +3,7 @@ import React from 'react';
 interface HandTrackerProps {
   onSentenceComplete?: (text: string, emotion?: string) => void;
   compact?: boolean;
+  broadcast?: boolean;
 }
 
 declare const HandTracker: React.FC<HandTrackerProps>;
