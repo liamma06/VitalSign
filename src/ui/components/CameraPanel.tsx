@@ -30,7 +30,7 @@ export function CameraPanel({ children }: { children: ReactNode }) {
       </div>
 
       {/* The HandTracker Component goes here */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ width: '1250px', height: '650px', flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         {children}
       </div>
     </div>

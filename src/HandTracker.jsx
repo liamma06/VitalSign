@@ -341,12 +341,12 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     : { display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#121212', minHeight: '100vh', padding: '20px', color: 'white', fontFamily: 'sans-serif' };
   
   const videoContainerStyle = compact
-    ? { position: 'relative', width: '100%', maxWidth: '720px', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem' }
-    : { position: 'relative', width: '100%', maxWidth: '720px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #333' };
+    ? { position: 'relative', width: '100%', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem' }
+    : { position: 'relative', width: '100%', borderRadius: '15px', overflow: 'hidden', border: '3px solid #333' };
 
   const textContainerStyle = compact
     ? { position: 'absolute', bottom: '24px', left: '24px', right: '24px', background: 'rgba(39, 39, 39, 0.95)', backdropFilter: 'blur(16px)', padding: '18px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)' }
-    : { marginTop: '20px', width: '100%', maxWidth: '720px', background: '#1e1e1e', padding: '25px', borderRadius: '15px', border: '1px solid #444' };
+    : { marginTop: '20px', width: '100%', background: '#1e1e1e', padding: '25px', borderRadius: '15px', border: '1px solid #444' };
 
   return (
     <div style={containerStyle}>
