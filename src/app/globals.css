@@ -84,3 +84,35 @@ body {
     transform: translateX(-180px);
   }
 }
+
+/* src/app/globals.css */
+
+/* Target the container AND its scrollbar parts directly */
+.transcript-container {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow-y: scroll !important; /* Forces scrollbar to exist so we can see it */
+  scrollbar-width: thin;         /* Firefox support */
+  scrollbar-color: #334155 #1e293b; /* Firefox support */
+}
+
+/* Chrome, Safari, Edge */
+.transcript-container::-webkit-scrollbar {
+  width: 12px !important;
+  display: block !important;
+}
+
+.transcript-container::-webkit-scrollbar-track {
+  background: #1e293b !important;
+  border-radius: 16px !important;
+}
+
+.transcript-container::-webkit-scrollbar-thumb {
+  background-color: #334155 !important;
+  border-radius: 20px !important;
+  border: 3px solid #1e293b !important; /* Creates a 'floating' effect */
+}
+
+.transcript-container::-webkit-scrollbar-thumb:hover {
+  background-color: #475569 !important;
+}

@@ -6,6 +6,7 @@ import HandTracker from '../HandTracker';
 import { TranscriptPanel } from '../ui/components/TranscriptPanel';
 import { CameraPanel } from '../ui/components/CameraPanel';
 import ShinyText from '../ui/components/ShinyText';
+import "./globals.css";
 
 const VOICES = {
   male: "pNInz6obpg8n9Y48W37W",
@@ -96,7 +97,7 @@ export default function Home() {
         </div>
         
         <div style={{ background: 'var(--vs-surface)', borderRadius: '20px', border: '1px solid var(--vs-border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="transcript-container" style={{ flex: 1, overflowY: 'auto' }}>
             <TranscriptPanel history={transcript} onClear={() => setTranscript([])} />
           </div>
 
