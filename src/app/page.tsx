@@ -5,10 +5,11 @@ import HandTracker from '../HandTracker';
 import { TranscriptPanel } from '../ui/components/TranscriptPanel';
 import { CameraPanel } from '../ui/components/CameraPanel';
 
-async function playAudioInBrowser(audioBuffer: ArrayBuffer): Promise<void> {
+async function playAudioInBrowser(audioBuffer: ArrayBuffer, volume: number = 100): Promise<void> {
   const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
+  audio.volume = Math.max(0, Math.min(1, volume / 100)); // Clamp volume between 0 and 1
 
   return new Promise((resolve, reject) => {
     audio.onended = () => {
@@ -23,9 +24,16 @@ async function playAudioInBrowser(audioBuffer: ArrayBuffer): Promise<void> {
   });
 }
 
+const VOICES = {
+  female: { id: "kdmDKE6EkgrWrrykO9Qt", label: "Female" },
+  male: { id: "iP95p4xoKVk53GoZ742B", label: "Male" },
+};
+
 export default function Home() {
   // Store the history of translated sentences
   const [transcript, setTranscript] = useState<{ text: string; emotion: string; timestamp: number }[]>([]);
+  const [voice, setVoice] = useState<"female" | "male">("female");
+  const [volume, setVolume] = useState(100); // Volume from 0 to 100
   const pipelineInFlight = useRef(false);
 
   // Callback when HandTracker finishes a sentence
@@ -79,20 +87,22 @@ export default function Home() {
             { text: refined, emotion: emotionLabel || "AI", timestamp: Date.now() }
           ]);
 
-          // 4) Speak it out with ElevenLabs (server-side)
-          const speakResponse = await fetch("/api/speak", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: refined, emotion: emotionLabel })
-          });
+          // 4) Speak it out with ElevenLabs (server-side) (only if volume > 0)
+          if (volume > 0) {
+            const speakResponse = await fetch("/api/speak", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: refined, emotion: emotionLabel, voiceId: VOICES[voice].id })
+            });
 
-          if (!speakResponse.ok) {
-            const detail = await speakResponse.text().catch(() => "");
-            throw new Error(detail || "Failed to speak text");
+            if (!speakResponse.ok) {
+              const detail = await speakResponse.text().catch(() => "");
+              throw new Error(detail || "Failed to speak text");
+            }
+
+            const audioBuffer = await speakResponse.arrayBuffer();
+            await playAudioInBrowser(audioBuffer, volume);
           }
-
-          const audioBuffer = await speakResponse.arrayBuffer();
-          await playAudioInBrowser(audioBuffer);
         }
       } catch (e) {
         console.error("Pipeline error:", e);
@@ -175,7 +185,14 @@ export default function Home() {
           minHeight: 0,
           boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)'
         }}>
-          <TranscriptPanel history={transcript} onClear={clearTranscript} />
+          <TranscriptPanel 
+            history={transcript} 
+            onClear={clearTranscript}
+            voice={voice}
+            onVoiceChange={setVoice}
+            volume={volume}
+            onVolumeChange={setVolume}
+          />
         </div>
 
       </div>
