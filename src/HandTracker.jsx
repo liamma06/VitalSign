@@ -14,6 +14,11 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   const [faceEmotionConfidence, setFaceEmotionConfidence] = useState(0);
   const emotionInFlight = useRef(false);
   const lastControllerRef = useRef(null);
+  const lastEmotionUpdatedAt = useRef(0);
+
+  // RAF loop reads from refs (state values would be stale inside the loop)
+  const sentenceRef = useRef("");
+  const faceEmotionRef = useRef("Neutral");
   
   // HISTORY FOR DEBOUNCING AND MOTION
   const gestureHistory = useRef([]);
@@ -22,14 +27,29 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   const lastCommittedGesture = useRef(null);
   const handWasDetected = useRef(false);
 
+  // Hand-left-frame debounce
+  const noHandFrames = useRef(0);
+  const lastFinalizeAt = useRef(0);
+
   const HISTORY_SIZE = 10;
   const MOTION_WINDOW_MS = 500; 
+
+  // Tune to reduce false-finalize on brief landmark dropouts.
+  const NO_HAND_FRAME_THRESHOLD = 8;
+  const FINALIZE_COOLDOWN_MS = 800;
+
+  useEffect(() => {
+    sentenceRef.current = sentence;
+  }, [sentence]);
+
+  useEffect(() => {
+    faceEmotionRef.current = faceEmotion;
+  }, [faceEmotion]);
 
   const classifyGesture = (g) => {
     if (!g || g === "..." || g === "No Hand") {
       return { kind: "none", baseWeight: 0, minCount: Infinity, typeMinCount: Infinity, typeDelayMs: Infinity };
     }
-    // All target words (including LOVE) use stable "word" settings
     return { kind: "word", baseWeight: 2.5, minCount: 5, typeMinCount: 5, typeDelayMs: 600 };
   };
 
@@ -73,9 +93,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
   };
 
   const detectFaceEmotion = async () => {
-    try {
-      if (lastControllerRef.current) try { lastControllerRef.current.abort(); } catch (e) {}
-    } catch (e) {}
+    if (emotionInFlight.current) return;
     const imageDataUrl = captureFrameDataUrl();
     if (!imageDataUrl) return;
 
@@ -93,6 +111,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       const data = await res.json();
       if (data?.emotion) setFaceEmotion(data.emotion);
       if (typeof data?.confidence === "number") setFaceEmotionConfidence(data.confidence);
+      lastEmotionUpdatedAt.current = Date.now();
     } catch (err) {
     } finally {
       if (lastControllerRef.current === controller) lastControllerRef.current = null;
@@ -105,8 +124,15 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       const video = webcamRef.current?.video;
       if (!video || video.readyState !== 4) return;
       detectFaceEmotion();
-    }, 1000);
-    return () => clearInterval(id);
+    }, 1500);
+    return () => {
+      clearInterval(id);
+      try {
+        if (lastControllerRef.current) lastControllerRef.current.abort();
+      } catch (e) {}
+      lastControllerRef.current = null;
+      emotionInFlight.current = false;
+    };
   }, []);
 
   const predict = () => {
@@ -117,6 +143,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       const results = landmarker.detectForVideo(video, performance.now());
 
       if (results.landmarks?.length > 0) {
+        noHandFrames.current = 0;
         const lm = results.landmarks[0];
         draw(results.landmarks);
         
@@ -129,13 +156,24 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
         }
         debounceAndType(rawSign);
       } else {
-        if (handWasDetected.current && onSentenceComplete) {
-          const currentText = sentence.trim();
+        noHandFrames.current += 1;
+
+        const now = Date.now();
+        const canFinalize =
+          handWasDetected.current &&
+          onSentenceComplete &&
+          noHandFrames.current >= NO_HAND_FRAME_THRESHOLD &&
+          now - lastFinalizeAt.current > FINALIZE_COOLDOWN_MS;
+
+        if (canFinalize) {
+          const currentText = sentenceRef.current.trim();
           if (currentText.length > 0) {
-            onSentenceComplete(currentText, faceEmotion);
+            onSentenceComplete(currentText, faceEmotionRef.current);
             setSentence("");
           }
           handWasDetected.current = false;
+          lastFinalizeAt.current = now;
+          noHandFrames.current = 0;
         }
         setGesture("No Hand");
         gestureHistory.current = [];
@@ -158,7 +196,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     // Normalization scale
     const handScale = dist(wrist, middleK);
   
-    // Extended Logic (Tip further from wrist than Knuckle)
+    // Extended Logic
     const isExtended = (tip, knuckle) => dist(tip, wrist) > dist(knuckle, wrist) + (handScale * 0.15);
     
     const f1 = isExtended(indexT, indexK); // Index
@@ -181,7 +219,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     }
     
     const dx = endPos.x - startPos.x;
-    const dy = endPos.y - startPos.y; // Positive dy means DOWN
+    const dy = endPos.y - startPos.y; 
     const dxView = -dx; 
 
     // --- "HELLO" (Wave) ---
@@ -201,13 +239,35 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
 
     // --- STATIC GESTURES ---
 
-    // Check Thumb Extension (needed for YES, LOVE)
     const isThumbOut = dist(thumbT, indexK) > handScale * 0.6;
+    const isSideways = Math.abs(wrist.x - middleK.x) > Math.abs(wrist.y - middleK.y);
+
+    // --- "HELP" (Signal for Help - Stage 1) ---
+    // 4 Fingers Open + Thumb Tucked (Not extended)
+    if (isPalmOpen && !isThumbOut) {
+        return "HELP";
+    }
 
     // --- "LOVE" (ILY Sign) ---
-    // Index + Pinky + Thumb are Extended. Middle + Ring are Curled.
     if (f1 && !f2 && !f3 && f4 && isThumbOut) {
         return "LOVE";
+    }
+
+    // --- "CALL" ---
+    if (!f1 && !f2 && !f3 && f4 && isThumbOut) {
+        if (isSideways) return "CALL";
+    }
+
+    // --- "ME" (Pointing at self with thumb) ---
+    if (!f1 && !f2 && !f3 && !f4) {
+        const isThumbMostlyOut = dist(thumbT, indexK) > handScale * 0.4;
+        if (isThumbMostlyOut) {
+            const isHorizontal = Math.abs(thumbT.y - indexK.y) < handScale * 0.5;
+            // Ensure pointing inward (Thumb tip between wrist/pinky X plane)
+            const isPointingIn = Math.abs(thumbT.x - pinkyK.x) < Math.abs(thumbT.x - indexK.x) || 
+                                 Math.abs(thumbT.x - wrist.x) < handScale * 0.3;
+            if (isHorizontal) return "ME";
+        }
     }
 
     // --- "YES" (Thumbs Up) ---
@@ -225,7 +285,7 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     }
 
     // --- "I" (Pinky Up) ---
-    if (!f1 && !f2 && !f3 && f4) {
+    if (!f1 && !f2 && !f3 && f4 && !isThumbOut) {
         return "I";
     }
 
@@ -253,7 +313,6 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
     const now = Date.now();
     const timeSinceLastType = now - lastTypedTime.current;
     
-    // Commit if stable and (different gesture OR enough time passed)
     if (best !== "..." && best !== "No Hand" && count >= meta.minCount && 
        (lastCommittedGesture.current !== best || timeSinceLastType > 2000)) {
        
@@ -322,12 +381,24 @@ export default function HandTracker({ onSentenceComplete, compact = false }) {
       <div style={textContainerStyle}>
         {!compact ? (
           <>
+             <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+               <div style={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Emotion</div>
+               <div style={{ background: '#0b1220', color: '#c7f9d8', padding: '6px 10px', borderRadius: '8px', fontWeight: '600' }}>
+                 {faceEmotion} {faceEmotionConfidence ? `(${Math.round(faceEmotionConfidence * 100)}%)` : ''}
+               </div>
+             </div>
              <p style={{ color: '#aaa', margin: '0 0 10px 0', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '1px' }}>Current Sentence</p>
              <p style={{ fontSize: '32px', minHeight: '45px', margin: '0', fontWeight: '500' }}>{sentence}</p>
              <button onClick={() => { setSentence(""); }} style={{ marginTop: '20px', padding: '10px 25px', background: '#ff3b3b', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Clear Text</button>
           </>
         ) : (
           <>
+             <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <div style={{ color: '#666', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>Emotion</div>
+               <div style={{ background: '#f0f7ef', color: '#065f46', padding: '4px 8px', borderRadius: '6px', fontWeight: '600', fontSize: '12px' }}>
+                 {faceEmotion} {faceEmotionConfidence ? `(${Math.round(faceEmotionConfidence * 100)}%)` : ''}
+               </div>
+             </div>
              <p style={{ color: '#333', margin: '0 0 10px 0', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', fontWeight: '500' }}>Current Sentence</p>
              <p style={{ fontSize: '18px', minHeight: '30px', margin: '0', fontWeight: '500', color: '#333' }}>{sentence}</p>
           </>

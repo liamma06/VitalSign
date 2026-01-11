@@ -9,6 +9,7 @@ async function playAudioInBrowser(audioBuffer: ArrayBuffer): Promise<void> {
   const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
+
   return new Promise((resolve, reject) => {
     audio.onended = () => {
       URL.revokeObjectURL(url);
@@ -27,6 +28,8 @@ export default function Home() {
   const [transcript, setTranscript] = useState<{ text: string; emotion: string; timestamp: number }[]>([]);
   const pipelineInFlight = useRef(false);
 
+  const pipelineInFlight = useRef(false);
+
   // Callback when HandTracker finishes a sentence
   const handleSentenceComplete = (text: string, emotion?: string) => {
     void (async () => {
@@ -34,6 +37,7 @@ export default function Home() {
       if (!raw) return;
       if (pipelineInFlight.current) return;
       pipelineInFlight.current = true;
+
       const emotionLabel = (emotion ?? "Neutral").trim();
 
       // 1) Save + append raw dialogue chunk to transcript
@@ -49,8 +53,8 @@ export default function Home() {
           'Return ONLY plain text. No markdown, no code blocks, no extra commentary.',
           'Keep it brief and faithful to the original meaning.'
         ].join('\n');
-        const fullPrompt = `${basePrompt}\n\nRaw Text: ${JSON.stringify(raw)}${emotionLabel ? `\nDetected Emotion: ${emotionLabel}` : ''}`;
 
+        const fullPrompt = `${basePrompt}\n\nRaw Text: ${JSON.stringify(raw)}${emotionLabel ? `\nDetected Emotion: ${emotionLabel}` : ''}`;
         const geminiResponse = await fetch("/api/gemini", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
