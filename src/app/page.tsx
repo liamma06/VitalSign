@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
 import HandTracker from '../HandTracker';
 import { TranscriptPanel } from '../ui/components/TranscriptPanel';
 import { CameraPanel } from '../ui/components/CameraPanel';
+import ShinyText from '../ui/components/ShinyText'; // <--- Added Import
 
 async function playAudioInBrowser(audioBuffer: ArrayBuffer): Promise<void> {
   const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
@@ -11,24 +13,16 @@ async function playAudioInBrowser(audioBuffer: ArrayBuffer): Promise<void> {
   const audio = new Audio(url);
 
   return new Promise((resolve, reject) => {
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      resolve();
-    };
-    audio.onerror = (error) => {
-      URL.revokeObjectURL(url);
-      reject(error);
-    };
+    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    audio.onerror = (error) => { URL.revokeObjectURL(url); reject(error); };
     audio.play().catch(reject);
   });
 }
 
 export default function Home() {
-  // Store the history of translated sentences
   const [transcript, setTranscript] = useState<{ text: string; emotion: string; timestamp: number }[]>([]);
   const pipelineInFlight = useRef(false);
 
-  // Callback when HandTracker finishes a sentence
   const handleSentenceComplete = (text: string, emotion?: string) => {
     void (async () => {
       const raw = (text ?? "").trim();
@@ -37,12 +31,7 @@ export default function Home() {
       pipelineInFlight.current = true;
 
       const emotionLabel = (emotion ?? "Neutral").trim();
-
-      // 1) Save + append raw dialogue chunk to transcript
-      setTranscript(prev => [
-        ...prev,
-        { text: raw, emotion: emotionLabel, timestamp: Date.now() }
-      ]);
+      setTranscript(prev => [...prev, { text: raw, emotion: emotionLabel, timestamp: Date.now() }]);
 
       try {
         // 2) Process with Cohere (refine into natural, speakable text)
@@ -68,26 +57,18 @@ export default function Home() {
         const refined = String(cohereData?.text ?? "").trim();
 
         if (refined) {
-          // 3) Append the processed text as an AI/system turn
-          setTranscript(prev => [
-            ...prev,
-            { text: refined, emotion: emotionLabel || "AI", timestamp: Date.now() }
-          ]);
-
-          // 4) Speak it out with ElevenLabs (server-side)
+          setTranscript(prev => [...prev, { text: refined, emotion: emotionLabel || "AI", timestamp: Date.now() }]);
+          
           const speakResponse = await fetch("/api/speak", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: refined, emotion: emotionLabel })
           });
 
-          if (!speakResponse.ok) {
-            const detail = await speakResponse.text().catch(() => "");
-            throw new Error(detail || "Failed to speak text");
+          if (speakResponse.ok) {
+            const audioBuffer = await speakResponse.arrayBuffer();
+            await playAudioInBrowser(audioBuffer);
           }
-
-          const audioBuffer = await speakResponse.arrayBuffer();
-          await playAudioInBrowser(audioBuffer);
         }
       } catch (e) {
         console.error("Pipeline error:", e);
@@ -119,60 +100,61 @@ export default function Home() {
         background: 'var(--vs-surface)',
         backdropFilter: 'blur(10px)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: 10, height: 10, background: 'var(--vs-accent)', borderRadius: '50%', boxShadow: '0 0 12px var(--vs-accent), 0 0 4px var(--vs-accent)' }} />
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '600', letterSpacing: '-0.75px' }}>VitalSign</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          
+          <img 
+            src="/VitalSignIcon.png" 
+            alt="VitalSign Logo" 
+            style={{ 
+              width: '45px',    
+              height: '45px',   
+              borderRadius: '10px', 
+              objectFit: 'cover',
+              filter: 'drop-shadow(0 0 8px rgba(0, 255, 127, 0.8)) brightness(1.2)'
+            }} 
+          />
+          
+          {/* --- REPLACED STATIC TEXT WITH SHINYTEXT --- */}
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '600', letterSpacing: '-0.75px' }}>
+            <ShinyText text="VitalSign" speed={3} />
+          </h1>
+
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--vs-muted)', fontWeight: '500' }}>
-          System Operational
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <Link href="/tutorial" style={{ 
+            color: 'var(--vs-muted)', 
+            textDecoration: 'none', 
+            fontSize: '13px', 
+            fontWeight: '500',
+            cursor: 'pointer'
+          }}>
+            Tutorial
+          </Link>
+          <div style={{ 
+            fontSize: '13px', 
+            color: 'var(--vs-accent)', 
+            border: '1px solid var(--vs-accent)', 
+            padding: '4px 10px', 
+            borderRadius: '4px', 
+            fontWeight: '500',
+            backgroundColor: 'rgba(0, 255, 127, 0.05)' 
+          }}>
+            System Operational
+          </div>
         </div>
       </header>
 
-      {/* MAIN CONTENT GRID */}
-      <div style={{ 
-        flex: 1, 
-        display: 'grid', 
-        gridTemplateColumns: '1fr 420px', 
-        gap: '24px', 
-        padding: '24px',
-        minHeight: 0
-      }}>
-        
-        {/* LEFT: CAMERA FEED */}
-        <div style={{ 
-          background: 'var(--vs-surface)', 
-          borderRadius: '20px', 
-          border: '1px solid var(--vs-border)', 
-          overflow: 'hidden',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          position: 'relative',
-          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)'
-        }}>
+      {/* CONTENT */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 420px', gap: '24px', padding: '24px', minHeight: 0 }}>
+        <div style={{ background: 'var(--vs-surface)', borderRadius: '20px', border: '1px solid var(--vs-border)', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
           <CameraPanel>
-            {/* We pass compact=true so HandTracker fits inside this panel nicely */}
-            <HandTracker 
-              onSentenceComplete={handleSentenceComplete} 
-              compact={true} 
-            />
+            <HandTracker onSentenceComplete={handleSentenceComplete} compact={true} />
           </CameraPanel>
         </div>
-
-        {/* RIGHT: TRANSCRIPT HISTORY */}
-        <div style={{ 
-          background: 'var(--vs-surface)', 
-          borderRadius: '20px', 
-          border: '1px solid var(--vs-border)', 
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          minHeight: 0,
-          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)'
-        }}>
+        <div style={{ background: 'var(--vs-surface)', borderRadius: '20px', border: '1px solid var(--vs-border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           <TranscriptPanel history={transcript} onClear={clearTranscript} />
         </div>
-
       </div>
     </main>
   );
