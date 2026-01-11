@@ -42,13 +42,33 @@ export default function Home() {
       setTranscript(prev => [...prev, { text: raw, emotion: emotionLabel, timestamp: Date.now() }]);
 
       try {
-        const geminiResponse = await fetch("/api/gemini", {
+        // Refine with Cohere into a natural, speakable sentence
+        const basePrompt = [
+          "You are a helpful assistant that rewrites sign-language translations into a clear, natural sentence.",
+          "Return ONLY plain text. No markdown, no code blocks, no extra commentary.",
+          "Keep it brief and faithful to the original meaning."
+        ].join("\n");
+
+        const fullPrompt = `${basePrompt}\n\nRaw Text: ${JSON.stringify(raw)}${emotionLabel ? `\nDetected Emotion: ${emotionLabel}` : ""}`;
+
+        const refineResponse = await fetch("/api/cohere", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: `Rewrite this sign-language text into natural English: ${raw}` })
+          body: JSON.stringify({ prompt: fullPrompt })
         });
-        const geminiData = await geminiResponse.json();
-        const refined = String(geminiData?.text ?? "").trim();
+
+        if (!refineResponse.ok) {
+          const err = await refineResponse.json().catch(() => ({}));
+          const message =
+            typeof err?.error === "string" && err.error.trim()
+              ? err.error
+              : "Failed to process with Cohere";
+          const details = typeof err?.details === "string" ? err.details.trim() : "";
+          throw new Error(details ? `${message}: ${details}` : message);
+        }
+
+        const refineData = await refineResponse.json();
+        const refined = String(refineData?.text ?? "").trim();
 
         if (refined) {
           setTranscript(prev => [...prev, { text: refined, emotion: emotionLabel || "AI", timestamp: Date.now() }]);
