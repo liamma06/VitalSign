@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
+import webpack from "webpack";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 
@@ -15,11 +16,16 @@ const nextConfig: NextConfig = {
         fs: false
       };
 
-      config.resolve.alias = {
-        ...(config.resolve.alias ?? {}),
-        // face-api.js pulls node-fetch which optionally requires 'encoding'
-        encoding: false
-      };
+      // face-api.js pulls node-fetch, which optionally requires 'encoding'.
+      // In the browser build we don't need that dependency; ignoring it removes
+      // the noisy "Can't resolve 'encoding'" warning during `next build`.
+      config.plugins = config.plugins ?? [];
+      config.plugins.push(
+        new webpack.IgnorePlugin({
+          resourceRegExp: /^encoding$/,
+          contextRegExp: /node-fetch/
+        })
+      );
     }
 
     return config;
