@@ -101,27 +101,29 @@ export default function Home() {
 
   return (
     <main style={{ 
-      minHeight: '100vh', 
+      height: '100vh',
       background: 'var(--vs-bg)', 
       color: 'var(--vs-text)',
       display: 'flex',
       flexDirection: 'column',
-      fontFamily: 'system-ui, sans-serif'
+      fontFamily: 'system-ui, sans-serif',
+      overflow: 'hidden'
     }}>
       {/* HEADER */}
       <header style={{ 
-        padding: '20px 40px', 
+        padding: '16px 32px', 
         borderBottom: '1px solid var(--vs-border)', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
-        background: 'var(--vs-surface)'
+        background: 'var(--vs-surface)',
+        backdropFilter: 'blur(10px)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <div style={{ width: 12, height: 12, background: 'var(--vs-accent)', borderRadius: '50%', boxShadow: '0 0 10px var(--vs-accent)' }} />
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '600', letterSpacing: '-0.5px' }}>VitalSign AI</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: 10, height: 10, background: 'var(--vs-accent)', borderRadius: '50%', boxShadow: '0 0 12px var(--vs-accent), 0 0 4px var(--vs-accent)' }} />
+          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '600', letterSpacing: '-0.75px' }}>VitalSign</h1>
         </div>
-        <div style={{ fontSize: '14px', color: 'var(--vs-muted)' }}>
+        <div style={{ fontSize: '13px', color: 'var(--vs-muted)', fontWeight: '500' }}>
           System Operational
         </div>
       </header>
@@ -130,22 +132,23 @@ export default function Home() {
       <div style={{ 
         flex: 1, 
         display: 'grid', 
-        gridTemplateColumns: '1fr 400px', // Split: Camera (Auto) | Transcript (Fixed)
-        gap: '20px', 
-        padding: '20px',
-        height: 'calc(100vh - 80px)' 
+        gridTemplateColumns: '1fr 420px', 
+        gap: '24px', 
+        padding: '24px',
+        minHeight: 0
       }}>
         
         {/* LEFT: CAMERA FEED */}
         <div style={{ 
           background: 'var(--vs-surface)', 
-          borderRadius: '16px', 
+          borderRadius: '20px', 
           border: '1px solid var(--vs-border)', 
           overflow: 'hidden',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          position: 'relative'
+          position: 'relative',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)'
         }}>
           <CameraPanel>
             {/* We pass compact=true so HandTracker fits inside this panel nicely */}
@@ -159,12 +162,13 @@ export default function Home() {
         {/* RIGHT: TRANSCRIPT HISTORY */}
         <div style={{ 
           background: 'var(--vs-surface)', 
-          borderRadius: '16px', 
+          borderRadius: '20px', 
           border: '1px solid var(--vs-border)', 
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          minHeight: 0
+          minHeight: 0,
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05)'
         }}>
           <TranscriptPanel history={transcript} onClear={clearTranscript} />
         </div>
