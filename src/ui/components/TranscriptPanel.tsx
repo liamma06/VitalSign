@@ -215,7 +215,7 @@ export function TranscriptPanel({
                 background: 'var(--vs-surface)',
                 border: '1px solid var(--vs-border)',
                 borderRadius: '16px',
-                borderBottomLeftRadius: '4px', // Speech bubble look
+                borderBottomLeftRadius: '4px', 
                 padding: '16px 24px',
                 display: 'flex',
                 alignItems: 'center',
