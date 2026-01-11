@@ -13,13 +13,13 @@ function clamp01(n: number): number {
 }
 
 function buildStability(emotion: string | null): number {
-	// Max compatibility: only vary stability by emotion.
 	const e = (emotion ?? "").toLowerCase();
-	if (e === "happy") return 0.2;
-	if (e === "sad") return 0.6;
-	if (e === "angry") return 0.3;
-	return 0.45;
-}
+	// Fixed to use only allowed values: 0.0, 0.5, or 1.0
+	if (e === "happy") return 0.0; 
+	if (e === "sad") return 1.0;   
+	if (e === "angry") return 0.0;
+	return 0.5; // Natural/Default
+  }
 
 async function callElevenLabsTts(input: {
 	apiKey: string;
