@@ -102,4 +102,7 @@ Biometric Integration: Using smartwatches to detect heart rate and automatically
 
 Mobile App: Porting the logic to React Native for a truly portable pocket interpreter.
 
-Built with 💜 for DeltaHacks.
+<br>
+---
+
+*Built with 💜 for DeltaHacks.*
